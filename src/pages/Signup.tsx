@@ -17,7 +17,7 @@ const Signup = () => {
     confirmPassword: ""
   });
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (formData.password !== formData.confirmPassword) {
@@ -25,14 +25,34 @@ const Signup = () => {
       return;
     }
 
-    // Mock signup - in production, save to database
-    localStorage.setItem("medico", JSON.stringify({ 
-      nome: formData.nome, 
-      crm: formData.crm,
-      email: formData.email 
-    }));
-    
-    navigate("/dashboard");
+    try {
+      // Fazendo a chamada real para o Python
+      const response = await fetch("http://127.0.0.1:8000/users/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          full_name: formData.nome, // O Python espera 'full_name'
+          crm: formData.crm
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Usuário criado:", data);
+        alert("Cadastro realizado com sucesso!");
+        navigate("/login"); // Manda pro login
+      } else {
+        const errorData = await response.json();
+        alert("Erro ao cadastrar: " + (errorData.detail || "Erro desconhecido"));
+      }
+    } catch (error) {
+      console.error("Erro de conexão:", error);
+      alert("Erro ao conectar com o servidor. Verifique se o backend está rodando.");
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

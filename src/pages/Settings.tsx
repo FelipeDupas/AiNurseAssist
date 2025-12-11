@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { useFontSize } from "@/contexts/FontSizeContext";
@@ -17,12 +17,16 @@ const Settings = () => {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const { fontSize, setFontSize } = useFontSize();
-  const medico = JSON.parse(localStorage.getItem("medico") || "{}");
+  
+  // Pega o ID do médico logado
+  const medicoLocal = JSON.parse(localStorage.getItem("medico") || "{}");
+  const userId = medicoLocal?.id;
 
+  const [loading, setLoading] = useState(false);
   const [profileData, setProfileData] = useState({
-    nome: medico.nome || "",
-    crm: medico.crm || "",
-    email: medico.email || "",
+    nome: "",
+    crm: "",
+    email: "",
     especialidade: "Clínico Geral",
     telefone: ""
   });
@@ -34,16 +38,78 @@ const Settings = () => {
     aiUpdates: true
   });
 
-  const handleSaveProfile = () => {
-    localStorage.setItem("medico", JSON.stringify({
-      nome: profileData.nome,
-      crm: profileData.crm,
-      email: profileData.email
-    }));
-    toast.success("Perfil atualizado com sucesso!");
+  // Carregar dados reais do Banco de Dados
+  useEffect(() => {
+    if (!userId) {
+      navigate("/login");
+      return;
+    }
+
+    const fetchProfile = async () => {
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/users/${userId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setProfileData({
+            nome: data.full_name,
+            crm: data.crm,
+            email: data.email,
+            especialidade: data.specialty || "Clínico Geral",
+            telefone: data.phone || ""
+          });
+        }
+      } catch (error) {
+        console.error("Erro ao carregar perfil:", error);
+        toast.error("Não foi possível carregar seus dados.");
+      }
+    };
+
+    fetchProfile();
+  }, [userId, navigate]);
+
+  const handleSaveProfile = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/users/${userId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          full_name: profileData.nome,
+          crm: profileData.crm,
+          email: profileData.email,
+          phone: profileData.telefone,
+          specialty: profileData.especialidade
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Atualiza o localStorage para manter a sessão sincronizada
+        localStorage.setItem("medico", JSON.stringify({
+          id: data.id,
+          nome: data.full_name,
+          crm: data.crm,
+          email: data.email,
+          specialty: data.specialty
+        }));
+
+        toast.success("Perfil atualizado com sucesso!");
+      } else {
+        toast.error("Erro ao atualizar perfil.");
+      }
+    } catch (error) {
+      console.error("Erro:", error);
+      toast.error("Erro de conexão com o servidor.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSaveNotifications = () => {
+    // Aqui você salvaria no banco também futuramente
     toast.success("Preferências de notificação salvas!");
   };
 
@@ -159,7 +225,7 @@ const Settings = () => {
                     onValueChange={(value) => setProfileData({...profileData, especialidade: value})}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Selecione sua especialidade" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Clínico Geral">Clínico Geral</SelectItem>
@@ -168,6 +234,7 @@ const Settings = () => {
                       <SelectItem value="Pediatria">Pediatria</SelectItem>
                       <SelectItem value="Ortopedia">Ortopedia</SelectItem>
                       <SelectItem value="Dermatologia">Dermatologia</SelectItem>
+                      <SelectItem value="Enfermagem">Enfermagem</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -175,9 +242,9 @@ const Settings = () => {
                 <Separator />
 
                 <div className="flex justify-end">
-                  <Button onClick={handleSaveProfile} className="gap-2">
+                  <Button onClick={handleSaveProfile} className="gap-2" disabled={loading}>
                     <Save className="w-4 h-4" />
-                    Salvar Alterações
+                    {loading ? "Salvando..." : "Salvar Alterações"}
                   </Button>
                 </div>
               </CardContent>
@@ -230,42 +297,6 @@ const Settings = () => {
 
                 <Separator />
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="weeklyReport">Relatório Semanal</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Receba um resumo dos casos da semana
-                    </p>
-                  </div>
-                  <Switch
-                    id="weeklyReport"
-                    checked={notifications.weeklyReport}
-                    onCheckedChange={(checked) => 
-                      setNotifications({...notifications, weeklyReport: checked})
-                    }
-                  />
-                </div>
-
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="aiUpdates">Atualizações da IA</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Novidades sobre melhorias no sistema de IA
-                    </p>
-                  </div>
-                  <Switch
-                    id="aiUpdates"
-                    checked={notifications.aiUpdates}
-                    onCheckedChange={(checked) => 
-                      setNotifications({...notifications, aiUpdates: checked})
-                    }
-                  />
-                </div>
-
-                <Separator />
-
                 <div className="flex justify-end">
                   <Button onClick={handleSaveNotifications} className="gap-2">
                     <Save className="w-4 h-4" />
@@ -276,7 +307,7 @@ const Settings = () => {
             </Card>
           </TabsContent>
 
-          {/* Security Tab */}
+          {/* Security Tab (Placeholder - funcionalidades complexas) */}
           <TabsContent value="security">
             <Card className="shadow-[var(--shadow-elevated)]">
               <CardHeader>
@@ -286,45 +317,9 @@ const Settings = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-semibold mb-4">Alterar Senha</h3>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="currentPassword">Senha Atual</Label>
-                        <Input id="currentPassword" type="password" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="newPassword">Nova Senha</Label>
-                        <Input id="newPassword" type="password" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="confirmPassword">Confirmar Nova Senha</Label>
-                        <Input id="confirmPassword" type="password" />
-                      </div>
-                      <Button variant="outline">Atualizar Senha</Button>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div>
-                    <h3 className="font-semibold mb-2">Autenticação de Dois Fatores</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Adicione uma camada extra de segurança à sua conta
-                    </p>
-                    <Button variant="outline">Configurar 2FA</Button>
-                  </div>
-
-                  <Separator />
-
-                  <div>
-                    <h3 className="font-semibold mb-2">Sessões Ativas</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Gerencie dispositivos conectados à sua conta
-                    </p>
-                    <Button variant="outline">Ver Sessões</Button>
-                  </div>
+                <div className="p-4 bg-muted/50 rounded-lg text-center text-muted-foreground">
+                  <Shield className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  Funcionalidades de troca de senha e 2FA estarão disponíveis em breve.
                 </div>
               </CardContent>
             </Card>
@@ -352,30 +347,10 @@ const Settings = () => {
                     <SelectContent>
                       <SelectItem value="light">Claro</SelectItem>
                       <SelectItem value="dark">Escuro</SelectItem>
+                      <SelectItem value="system">Sistema</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-
-                <Separator />
-
-                <div className="space-y-2">
-                  <Label htmlFor="fontSize">Tamanho da Fonte</Label>
-                  <Select 
-                    value={fontSize}
-                    onValueChange={(value: "small" | "medium" | "large") => setFontSize(value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="small">Pequeno</SelectItem>
-                      <SelectItem value="medium">Médio</SelectItem>
-                      <SelectItem value="large">Grande</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Separator />
 
                 <div className="flex justify-end">
                   <Button onClick={handleSaveAppearance} className="gap-2">

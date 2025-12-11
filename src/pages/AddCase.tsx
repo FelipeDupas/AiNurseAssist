@@ -11,6 +11,12 @@ import { toast } from "sonner";
 
 const AddCase = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  
+  // Recupera as informações do médico logado do localStorage
+  const medicoString = localStorage.getItem("medico");
+  const medico = medicoString ? JSON.parse(medicoString) : null;
+
   const [formData, setFormData] = useState({
     fullName: "",
     age: "",
@@ -20,16 +26,56 @@ const AddCase = () => {
     exams: ""
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Mock submission - in production, send to AI backend
-    toast.success("Caso enviado para análise da IA com sucesso!");
-    
-    // Navigate to case view with mock ID
-    setTimeout(() => {
-      navigate("/case/new");
-    }, 1500);
+    // Verificação de segurança: garante que o usuário está logado e possui ID
+    if (!medico || !medico.id) {
+      toast.error("Erro de sessão. Faça login novamente.");
+      navigate("/login");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Envia os dados do formulário para o backend Python
+      // A query param 'owner_id' associa o caso ao médico logado
+      const response = await fetch(`http://127.0.0.1:8000/cases/?owner_id=${medico.id}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fullName: formData.fullName,
+          age: parseInt(formData.age), // Converte a idade de string para número (inteiro)
+          gender: formData.gender,
+          medicalHistory: formData.medicalHistory,
+          symptoms: formData.symptoms,
+          exams: formData.exams
+        }),
+      });
+
+      if (response.ok) {
+        // Se a resposta for OK (200), recebe o JSON com os dados do caso criado
+        const data = await response.json();
+        
+        toast.success("Caso analisado pela IA com sucesso!");
+        
+        // Redireciona para a visualização do caso usando o ID real retornado pelo backend
+        navigate(`/case/${data.id}`); 
+      } else {
+        // Se houver erro na resposta, exibe a mensagem retornada pelo backend
+        const error = await response.json();
+        toast.error("Erro ao enviar: " + (error.detail || "Erro desconhecido"));
+      }
+    } catch (error) {
+      console.error("Erro:", error);
+      toast.error("Erro de conexão com o servidor.");
+    } finally {
+      // Finaliza o estado de carregamento, liberando o botão de envio
+      setLoading(false);
+    }
   };
 
   return (
@@ -169,9 +215,9 @@ const AddCase = () => {
             >
               Cancelar
             </Button>
-            <Button type="submit" size="lg" className="gap-2 font-semibold">
+            <Button type="submit" size="lg" className="gap-2 font-semibold" disabled={loading}>
               <Send className="w-4 h-4" />
-              Enviar para IA
+              {loading ? "Analisando..." : "Enviar para IA"}
             </Button>
           </div>
         </form>

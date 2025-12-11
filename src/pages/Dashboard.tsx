@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,18 +15,48 @@ import {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const medico = JSON.parse(localStorage.getItem("medico") || "{}");
+  // Estado para guardar os casos reais do banco
+  const [cases, setCases] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  const medicoString = localStorage.getItem("medico");
+  const medico = medicoString ? JSON.parse(medicoString) : {};
+
+  // Efeito que carrega os dados assim que a tela abre
+  useEffect(() => {
+    if (!medico.id) {
+      navigate("/login");
+      return;
+    }
+
+    const fetchCases = async () => {
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/cases/?owner_id=${medico.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          // Ordena do mais recente para o mais antigo
+          const sortedData = data.sort((a: any, b: any) => b.id - a.id);
+          setCases(sortedData);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar casos:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCases();
+  }, [medico.id, navigate]);
 
   const handleLogout = () => {
     localStorage.removeItem("medico");
     navigate("/login");
   };
 
-  const recentCases = [
-    { id: 1, patient: "Maria Santos", date: "2025-11-01", status: "Analisado" },
-    { id: 2, patient: "João Costa", date: "2025-10-30", status: "Pendente" },
-    { id: 3, patient: "Ana Oliveira", date: "2025-10-28", status: "Analisado" },
-  ];
+  // Cálculos Reais baseados no Banco de Dados
+  const totalPacientes = cases.length;
+  const analisesConcluidas = cases.filter((c: any) => c.status === "Analisado").length;
+  const casosPendentes = cases.filter((c: any) => c.status === "Pendente").length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
@@ -37,7 +68,7 @@ const Dashboard = () => {
             </h1>
           </div>
           <div className="flex items-center gap-4">
-            <div className="text-right">
+            <div className="text-right hidden md:block">
               <p className="font-semibold text-foreground">{medico.nome}</p>
               <p className="text-sm text-muted-foreground">CRM: {medico.crm}</p>
             </div>
@@ -77,16 +108,17 @@ const Dashboard = () => {
           </p>
         </div>
 
+        {/* CARDS COM DADOS REAIS */}
         <div className="grid md:grid-cols-3 gap-6 mb-8">
           <Card className="shadow-[var(--shadow-card)] border-l-4 border-l-primary">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <FileText className="w-5 h-5 text-primary" />
-                Casos Ativos
+                Total de Casos
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">12</p>
+              <p className="text-3xl font-bold">{totalPacientes}</p>
             </CardContent>
           </Card>
 
@@ -98,7 +130,7 @@ const Dashboard = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">47</p>
+              <p className="text-3xl font-bold">{analisesConcluidas}</p>
             </CardContent>
           </Card>
 
@@ -106,11 +138,11 @@ const Dashboard = () => {
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <User className="w-5 h-5 text-accent" />
-                Pacientes Total
+                Pendentes
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">89</p>
+              <p className="text-3xl font-bold">{casosPendentes}</p>
             </CardContent>
           </Card>
         </div>
@@ -151,28 +183,34 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {recentCases.map((caso) => (
-                    <tr key={caso.id} className="border-b last:border-0">
-                      <td className="py-4 font-medium">{caso.patient}</td>
-                      <td className="py-4 text-muted-foreground">
-                        {new Date(caso.date).toLocaleDateString("pt-BR")}
-                      </td>
-                      <td className="py-4">
-                        <Badge variant={caso.status === "Analisado" ? "default" : "secondary"}>
-                          {caso.status}
-                        </Badge>
-                      </td>
-                      <td className="py-4">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => navigate(`/case/${caso.id}`)}
-                        >
-                          Visualizar
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  {loading ? (
+                    <tr><td colSpan={4} className="text-center py-4">Carregando casos...</td></tr>
+                  ) : cases.length === 0 ? (
+                    <tr><td colSpan={4} className="text-center py-4 text-muted-foreground">Nenhum caso cadastrado ainda.</td></tr>
+                  ) : (
+                    cases.map((caso: any) => (
+                      <tr key={caso.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                        <td className="py-4 font-medium">{caso.patient_name}</td>
+                        <td className="py-4 text-muted-foreground">
+                          {caso.created_at}
+                        </td>
+                        <td className="py-4">
+                          <Badge variant={caso.status === "Analisado" ? "default" : "secondary"}>
+                            {caso.status}
+                          </Badge>
+                        </td>
+                        <td className="py-4">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => navigate(`/case/${caso.id}`)}
+                          >
+                            Visualizar
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -183,4 +221,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default Dashboard; 
