@@ -7,12 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Download, AlertCircle, CheckCircle, Activity, Stethoscope } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { Pencil } from "lucide-react";
 
 // Interface para garantir que o TypeScript entenda os dados do Python
 interface CaseData {
   id: number;
   patient_name: string;
-  age: number;
+  birth_date: string;
   gender: string;
   medical_history: string;
   symptoms: string;
@@ -86,6 +87,16 @@ const CaseView = () => {
 
   const ai = caseData.ai_analysis_json;
 
+  const calcularIdade = (dataNasc: string) => {
+    if (!dataNasc) return "N/A";
+    const nasc = new Date(dataNasc);
+    const hoje = new Date();
+    let idade = hoje.getFullYear() - nasc.getFullYear();
+    const m = hoje.getMonth() - nasc.getMonth();
+    if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
+    return idade;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10 print:hidden">
@@ -98,6 +109,7 @@ const CaseView = () => {
             <ArrowLeft className="w-4 h-4" />
             Voltar ao Dashboard
           </Button>
+          
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
               <Stethoscope className="w-4 h-4 text-primary-foreground" />
@@ -106,10 +118,23 @@ const CaseView = () => {
               AI Nurse Assist
             </h1>
           </div>
-          <Button className="gap-2" onClick={handleExportPDF}>
-            <Download className="w-4 h-4" />
-            Exportar Relatório (PDF)
-          </Button>
+
+          <div className="flex items-center gap-3">
+            {/* NOVO BOTÃO DE EDIÇÃO */}
+            <Button 
+              variant="outline" 
+              className="gap-2 border-primary text-primary hover:bg-primary/5"
+              onClick={() => navigate(`/edit-case/${id}`)}
+            >
+              <Pencil className="w-4 h-4" />
+              Editar Caso
+            </Button>
+
+            <Button className="gap-2" onClick={handleExportPDF}>
+              <Download className="w-4 h-4" />
+              Exportar Relatório (PDF)
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -139,7 +164,8 @@ const CaseView = () => {
                   <h3 className="font-semibold text-sm text-muted-foreground mb-1">Paciente</h3>
                   <p className="text-lg font-medium">{caseData.patient_name}</p>
                   <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
-                    <span>Idade: {caseData.age} anos</span>
+                    {/* Usamos a função aqui para exibir a idade atualizada */}
+                    <span>Idade: {calcularIdade(caseData.birth_date)} anos</span>
                     <span>Sexo: {caseData.gender}</span>
                   </div>
                 </div>

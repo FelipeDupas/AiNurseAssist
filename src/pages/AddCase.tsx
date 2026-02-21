@@ -19,7 +19,7 @@ const AddCase = () => {
 
   const [formData, setFormData] = useState({
     fullName: "",
-    age: "",
+    birthDate: "",
     gender: "",
     medicalHistory: "",
     symptoms: "",
@@ -29,7 +29,7 @@ const AddCase = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Verificação de segurança: garante que o usuário está logado e possui ID
+    // Verificação de segurança: garante que o usuário está logado
     if (!medico || !medico.id) {
       toast.error("Erro de sessão. Faça login novamente.");
       navigate("/login");
@@ -39,33 +39,31 @@ const AddCase = () => {
     setLoading(true);
 
     try {
-      // Envia os dados do formulário para o backend Python
-      // A query param 'owner_id' associa o caso ao médico logado
+      // Ajuste crucial: Enviamos os dados no formato que o novo Back-end espera (separado)
       const response = await fetch(`http://127.0.0.1:8000/cases/?owner_id=${medico.id}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          fullName: formData.fullName,
-          age: parseInt(formData.age), // Converte a idade de string para número (inteiro)
-          gender: formData.gender,
-          medicalHistory: formData.medicalHistory,
+          patient_data: {
+            full_name: formData.fullName,       // O Backend espera full_name
+            birth_date: formData.birthDate,     // O Backend espera birth_date
+            gender: formData.gender,
+            medical_history: formData.medicalHistory // O Backend espera medical_history
+          },
           symptoms: formData.symptoms,
           exams: formData.exams
         }),
       });
 
       if (response.ok) {
-        // Se a resposta for OK (200), recebe o JSON com os dados do caso criado
         const data = await response.json();
+        toast.success("Paciente cadastrado e caso analisado pela IA!");
         
-        toast.success("Caso analisado pela IA com sucesso!");
-        
-        // Redireciona para a visualização do caso usando o ID real retornado pelo backend
+        // Redireciona para a visualização do caso usando o ID retornado
         navigate(`/case/${data.id}`); 
       } else {
-        // Se houver erro na resposta, exibe a mensagem retornada pelo backend
         const error = await response.json();
         toast.error("Erro ao enviar: " + (error.detail || "Erro desconhecido"));
       }
@@ -73,7 +71,6 @@ const AddCase = () => {
       console.error("Erro:", error);
       toast.error("Erro de conexão com o servidor.");
     } finally {
-      // Finaliza o estado de carregamento, liberando o botão de envio
       setLoading(false);
     }
   };
@@ -105,15 +102,16 @@ const AddCase = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Adicionar Caso Clínico</h1>
           <p className="text-muted-foreground">
-            Preencha os dados do paciente para análise da IA
+            Preencha os dados do paciente. Ele será cadastrado automaticamente no sistema.
           </p>
         </div>
 
         <form onSubmit={handleSubmit}>
+          {/* SEÇÃO 1: DADOS FIXOS DO PACIENTE */}
           <Card className="shadow-[var(--shadow-elevated)] mb-6">
             <CardHeader>
               <CardTitle>Dados do Paciente</CardTitle>
-              <CardDescription>Informações básicas do paciente</CardDescription>
+              <CardDescription>Informações para o prontuário permanente</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
@@ -128,13 +126,12 @@ const AddCase = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="age">Idade *</Label>
+                  <Label htmlFor="birthDate">Data de Nascimento *</Label>
                   <Input
-                    id="age"
-                    type="number"
-                    placeholder="Ex: 45"
-                    value={formData.age}
-                    onChange={(e) => setFormData({...formData, age: e.target.value})}
+                    id="birthDate"
+                    type="date"  
+                    value={formData.birthDate}
+                    onChange={(e) => setFormData({...formData, birthDate: e.target.value})}
                     required
                   />
                 </div>
@@ -160,10 +157,10 @@ const AddCase = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="medicalHistory">Histórico Médico Resumido</Label>
+                <Label htmlFor="medicalHistory">Histórico Médico Base</Label>
                 <Textarea
                   id="medicalHistory"
-                  placeholder="Descreva condições pré-existentes, alergias, cirurgias anteriores..."
+                  placeholder="Doenças crônicas, alergias e cirurgias que ficarão salvas no prontuário..."
                   value={formData.medicalHistory}
                   onChange={(e) => setFormData({...formData, medicalHistory: e.target.value})}
                   rows={4}
@@ -172,38 +169,34 @@ const AddCase = () => {
             </CardContent>
           </Card>
 
-          <Card className="shadow-[var(--shadow-elevated)] mb-6">
+          {/* SEÇÃO 2: DADOS DA CONSULTA ATUAL */}
+          <Card className="shadow-[var(--shadow-elevated)] mb-6 border-l-4 border-l-primary">
             <CardHeader>
-              <CardTitle>Sintomas e Observações</CardTitle>
-              <CardDescription>Descreva os sintomas apresentados pelo paciente</CardDescription>
+              <CardTitle>Sintomas da Consulta</CardTitle>
+              <CardDescription>O que o paciente apresenta no momento</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <Label htmlFor="symptoms">Sintomas Detalhados *</Label>
-              <Textarea
-                id="symptoms"
-                placeholder="Descreva em linguagem natural os sintomas, queixas principais, duração, intensidade..."
-                value={formData.symptoms}
-                onChange={(e) => setFormData({...formData, symptoms: e.target.value})}
-                rows={6}
-                required
-              />
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-[var(--shadow-elevated)] mb-8">
-            <CardHeader>
-              <CardTitle>Exames e Testes</CardTitle>
-              <CardDescription>Resultados de exames já realizados (se houver)</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Label htmlFor="exams">Resultados de Exames</Label>
-              <Textarea
-                id="exams"
-                placeholder="Descreva exames realizados e seus resultados..."
-                value={formData.exams}
-                onChange={(e) => setFormData({...formData, exams: e.target.value})}
-                rows={5}
-              />
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="symptoms">Sintomas Detalhados *</Label>
+                <Textarea
+                  id="symptoms"
+                  placeholder="Descreva as queixas atuais para análise da IA..."
+                  value={formData.symptoms}
+                  onChange={(e) => setFormData({...formData, symptoms: e.target.value})}
+                  rows={6}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="exams">Exames Atuais (opcional)</Label>
+                <Textarea
+                  id="exams"
+                  placeholder="Resultados de exames realizados hoje..."
+                  value={formData.exams}
+                  onChange={(e) => setFormData({...formData, exams: e.target.value})}
+                  rows={4}
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -217,7 +210,7 @@ const AddCase = () => {
             </Button>
             <Button type="submit" size="lg" className="gap-2 font-semibold" disabled={loading}>
               <Send className="w-4 h-4" />
-              {loading ? "Analisando..." : "Enviar para IA"}
+              {loading ? "Processando..." : "Analisar e Cadastrar"}
             </Button>
           </div>
         </form>

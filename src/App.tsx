@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import AddCase from "./pages/AddCase";
+import EditCase from "./pages/EditCase";
 import CaseView from "./pages/CaseView";
 import Patients from "./pages/Patients";
 import Settings from "./pages/Settings";
@@ -30,6 +31,7 @@ const App = () => (
               <Route path="/signup" element={<Signup />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/add-case" element={<AddCase />} />
+              <Route path="/edit-case/:id" element={<EditCase />} />
               <Route path="/case/:id" element={<CaseView />} />
               <Route path="/patients" element={<Patients />} />
               <Route path="/settings" element={<Settings />} />
