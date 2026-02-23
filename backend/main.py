@@ -7,26 +7,24 @@ import schemas
 from database import engine, get_db
 import os 
 from dotenv import load_dotenv
-import google.generativeai as genai
 import json
-import re
 from datetime import datetime
+import uvicorn
+from google import genai
+from google.genai import types
 
 load_dotenv()
 
-# --- CONFIGURAÇÃO IA ---
 api_key = os.getenv("GEMINI_API_KEY") 
 if not api_key:
     raise ValueError("ERRO: A variável GEMINI_API_KEY não foi encontrada no arquivo .env")
 
-genai.configure(api_key=api_key)
+client = genai.Client(api_key=api_key)
 
-# Cria as tabelas no banco se não existirem
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="AI Nurse Assist API")
 
-# --- CONFIGURAÇÃO DE CORS ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -35,7 +33,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- FUNÇÕES AUXILIARES ---
 
 def calcular_idade(data_nascimento_str):
     """Calcula a idade exata para precisão clínica da IA"""
@@ -48,7 +45,6 @@ def calcular_idade(data_nascimento_str):
         print(f"Erro ao calcular idade: {e}")
         return "não identificada"
 
-# --- ROTAS DE USUÁRIO (MÉDICO) ---
 
 @app.post("/login", response_model=schemas.UserResponse)
 def login(user_credentials: schemas.UserLogin, db: Session = Depends(get_db)):
@@ -104,17 +100,16 @@ def create_case(case_data: schemas.CaseCreate, owner_id: int, db: Session = Depe
     # Prioridade 2: Buscar por Nome + Data de Nascimento se dados do paciente forem enviados
     if not patient and case_data.patient_data:
         patient = db.query(models.Patient).filter(
-            # AQUI MUDOU: usamos .full_name e .birth_date do schema também
             models.Patient.full_name == case_data.patient_data.full_name,
             models.Patient.birth_date == case_data.patient_data.birth_date
         ).first()
         
         if not patient:
             patient = models.Patient(
-                full_name=case_data.patient_data.full_name,     # Ajustado
-                birth_date=case_data.patient_data.birth_date,   # Ajustado
+                full_name=case_data.patient_data.full_name,
+                birth_date=case_data.patient_data.birth_date,
                 gender=case_data.patient_data.gender,
-                medical_history=case_data.patient_data.medical_history, # Ajustado
+                medical_history=case_data.patient_data.medical_history,
                 owner_id=owner_id
             )
             db.add(patient)
@@ -124,9 +119,8 @@ def create_case(case_data: schemas.CaseCreate, owner_id: int, db: Session = Depe
     if not patient:
         raise HTTPException(status_code=400, detail="Dados do paciente não encontrados ou incompletos.")
 
-    # 2. CONSULTAR O GEMINI (USANDO SEU SALDO DISPONÍVEL)
+    # 2. CONSULTAR O GEMINI
     idade = calcular_idade(patient.birth_date)
-    model = genai.GenerativeModel('models/gemini-2.0-flash')
 
     prompt = f"""
     Atue como um médico especialista sênior. Realize a triagem:
@@ -139,19 +133,32 @@ def create_case(case_data: schemas.CaseCreate, owner_id: int, db: Session = Depe
     """
 
     try:
-        response = model.generate_content(prompt)
-        # Limpeza de markdown para garantir o parse do JSON
-        ai_text = re.sub(r"```json|```", "", response.text).strip()
-        ai_result = json.loads(ai_text)
-        # Proteção contra campos vazios que quebram a interface
+        # Nova chamada de API forçando JSON nativo
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+            )
+        )
+        
+        # O texto já vem em formato JSON válido, então usamos loads direto
+        ai_result = json.loads(response.text)
+        
+        # Proteção extra contra chaves faltantes no JSON gerado
         if "diagnoses" not in ai_result: ai_result["diagnoses"] = []
+        if "exams" not in ai_result: ai_result["exams"] = []
+        if "medications" not in ai_result: ai_result["medications"] = []
+
     except Exception as e:
         print(f"Erro Gemini: {e}")
         ai_result = {
             "referral": "Clínico Geral", 
             "urgency": "Indefinida", 
             "justification": "Erro no processamento da IA. Avaliação manual necessária.", 
-            "diagnoses": []
+            "diagnoses": [],
+            "exams": [],
+            "medications": []
         }
 
     # 3. SALVAR O CASO VINCULADO AO PACIENTE
@@ -216,3 +223,6 @@ def delete_case(case_id: int, owner_id: int, db: Session = Depends(get_db)):
     db.delete(case)
     db.commit()
     return None
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
