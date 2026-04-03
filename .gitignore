@@ -1,0 +1,9 @@
+node_modules
+.env
+*.log
+sample.jpg
+sample_small.jpg
+sample.png
+debug-*.js
+validacao-*.js
+teste-*.js
