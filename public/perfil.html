@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Perfil e Configurações — Ponto Eletrônico</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<div class="layout">
+
+  <!-- === SIDEBAR === gerada dinamicamente por renderSidebar() em app.js -->
+  <aside class="sidebar"></aside>
+
+  <!-- === MAIN === -->
+  <main class="main-content">
+    <header class="page-header">
+      <div class="page-header-left">
+        <!-- Hamburger: visível apenas em mobile (≤ 600px) -->
+        <button class="hamburger-btn" id="hamburger-btn" aria-label="Abrir menu">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
+        <div>
+          <h1>Perfil e Configurações</h1>
+          <p>Gerencie seus dados, preferências e parâmetros do sistema</p>
+        </div>
+      </div>
+      <div class="page-header-right">
+        <button class="icon-btn" id="notification-btn" title="Notificações" aria-label="Notificações" aria-expanded="false">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span class="notification-dot"></span>
+        </button>
+      </div>
+    </header>
+
+    <div class="page-body">
+
+      <!-- Abas de navegação -->
+      <div class="perfil-tabs">
+        <button class="perfil-tab active" data-tab="perfil">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          Perfil do Servidor
+        </button>
+        <button class="perfil-tab" data-tab="preferencias">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+            <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+            <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+          </svg>
+          Preferências
+        </button>
+        <button class="perfil-tab" data-tab="admin">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          Config. Servidor (Admin)
+        </button>
+      </div>
+
+      <!-- ── Aba: Perfil do Servidor ── -->
+      <div class="perfil-content active" id="tab-perfil">
+        <div class="perfil-grid">
+
+          <!-- Card lateral com avatar e dados resumidos -->
+          <div class="perfil-card-left">
+            <div class="perfil-cover"></div>
+            <div class="perfil-avatar-area">
+              <div class="perfil-avatar" id="perfil-avatar-main">
+                <span id="perfil-avatar-initials">CS</span>
+                <div class="perfil-avatar-edit">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                </div>
+              </div>
+              <h3 id="perfil-nome">Carlos Eduardo Silva</h3>
+              <p class="matricula">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="5" width="20" height="14" rx="2"/>
+                  <path d="M2 10h20"/>
+                </svg>
+                Matrícula: <strong id="perfil-matricula">12345-6</strong>
+              </p>
+            </div>
+
+            <div class="perfil-info-list">
+              <div class="perfil-info-item">
+                <label>CARGO</label>
+                <span id="perfil-cargo">Analista de Sistemas Pleno</span>
+              </div>
+              <div class="perfil-info-item">
+                <label>LOTAÇÃO</label>
+                <span id="perfil-lotacao">Secretaria de Administração (SECAD)</span>
+              </div>
+              <div class="perfil-info-item">
+                <label>STATUS</label>
+                <span class="status-ativo">Ativo</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Formulário de dados de contato e permissões -->
+          <div class="perfil-form-card">
+            <h3>Informações de Contato e Permissões</h3>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">E-mail Institucional</label>
+                <input type="email" class="form-control" id="perfil-email" value="carlos.silva@chapadaodoceu.go.gov.br" readonly />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Telefone / WhatsApp</label>
+                <input type="tel" class="form-control" id="perfil-telefone" value="(64) 99999-8888" readonly />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Data de Admissão <span class="form-hint-inline">(somente leitura)</span></label>
+                <input type="text" class="form-control form-readonly" id="perfil-admissao" value="15/03/2018" readonly />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Regime de Trabalho <span class="form-hint-inline">(somente leitura)</span></label>
+                <input type="text" class="form-control form-readonly" id="perfil-regime" value="40h Semanais (08:00 - 12:00 / 14:00 - 18:00)" readonly />
+              </div>
+            </div>
+
+            <!-- Níveis de acesso do servidor -->
+            <div class="form-group" style="margin-top:4px">
+              <label class="form-label">Níveis de Acesso</label>
+              <div class="access-levels">
+                <div class="access-level-item">
+                  <div class="access-check">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </div>
+                  <div class="access-level-info">
+                    <strong>Batida de Ponto Mobile</strong>
+                    <span>Permitido via App com Geolocalização</span>
+                  </div>
+                </div>
+                <div class="access-level-item">
+                  <div class="access-check">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </div>
+                  <div class="access-level-info">
+                    <strong>Acesso Admin (Restrito)</strong>
+                    <span>Gestão de servidores da própria secretaria</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="perfil-form-actions">
+              <!-- Modo leitura: apenas botão Editar -->
+              <button class="btn btn-outline" id="btn-editar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                Editar Perfil
+              </button>
+              <!-- Modo edição: Cancelar + Salvar -->
+              <button class="btn btn-outline" id="btn-cancelar-perfil" style="display:none">Cancelar</button>
+              <button class="btn btn-primary" id="btn-salvar" style="display:none">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                  <polyline points="17 21 17 13 7 13 7 21"/>
+                  <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                Salvar Alterações
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Aba: Preferências ── -->
+      <div class="perfil-content" id="tab-preferencias">
+        <div class="card" style="max-width:600px">
+          <div class="card-header"><h3>Preferências do Sistema</h3></div>
+          <div class="card-body" style="display:flex;flex-direction:column;gap:18px">
+
+            <!-- Toggle: Notificações por e-mail -->
+            <div class="flex-between">
+              <div>
+                <p style="font-size:13px;font-weight:600">Notificações por E-mail</p>
+                <p class="text-sm text-muted">Receber alertas de pendências e espelhos</p>
+              </div>
+              <label style="position:relative;display:inline-block;width:42px;height:24px">
+                <input type="checkbox" id="pref-email-notif" checked style="opacity:0;width:0;height:0">
+                <span id="toggle-email-notif" style="position:absolute;cursor:pointer;inset:0;background:#22c55e;border-radius:99px;transition:.3s">
+                  <span style="position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.3s;transform:translateX(18px)"></span>
+                </span>
+              </label>
+            </div>
+
+            <!-- Toggle: Lembrete de batida -->
+            <div class="flex-between" style="padding-top:14px;border-top:1px solid var(--border)">
+              <div>
+                <p style="font-size:13px;font-weight:600">Lembrete de Batida</p>
+                <p class="text-sm text-muted">Alerta 5 minutos antes do horário de ponto</p>
+              </div>
+              <label style="position:relative;display:inline-block;width:42px;height:24px">
+                <input type="checkbox" id="pref-lembrete" checked style="opacity:0;width:0;height:0">
+                <span id="toggle-lembrete" style="position:absolute;cursor:pointer;inset:0;background:#22c55e;border-radius:99px;transition:.3s">
+                  <span style="position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.3s;transform:translateX(18px)"></span>
+                </span>
+              </label>
+            </div>
+
+            <!-- Seleção de idioma -->
+            <div style="padding-top:14px;border-top:1px solid var(--border)">
+              <p style="font-size:13px;font-weight:600;margin-bottom:8px">Idioma do Sistema</p>
+              <select class="select-filter" style="width:100%">
+                <option>Português (Brasil)</option>
+                <option>English</option>
+              </select>
+            </div>
+
+            <div style="padding-top:14px;border-top:1px solid var(--border)">
+              <button class="btn btn-primary" id="btn-salvar-prefs">Salvar Preferências</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Aba: Configurações Admin ── -->
+      <div class="perfil-content" id="tab-admin">
+        <div class="card" style="max-width:700px">
+          <div class="card-header">
+            <h3>Configurações do Servidor (Admin)</h3>
+            <span class="badge badge-warning">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              Restrito
+            </span>
+          </div>
+          <div class="card-body" style="display:flex;flex-direction:column;gap:16px">
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Tolerância de Atraso</label>
+                <div class="input-group">
+                  <input type="number" class="form-control" value="5" min="0" max="60" />
+                  <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:12px;color:#64748b">min</span>
+                </div>
+                <p class="form-hint">Minutos de tolerância antes de registrar atraso</p>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Raio de Geolocalização</label>
+                <div class="input-group">
+                  <input type="number" class="form-control" value="500" min="50" max="5000" />
+                  <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:12px;color:#64748b">m</span>
+                </div>
+                <p class="form-hint">Raio máximo em metros para permitir registro</p>
+              </div>
+            </div>
+
+            <!-- Slider de threshold facial -->
+            <div class="form-group">
+              <label class="form-label">Threshold de Similaridade Facial</label>
+              <input type="range" id="bio-threshold" min="0.3" max="0.9" step="0.05" value="0.6"
+                style="width:100%;accent-color:var(--blue-btn)" />
+              <div class="flex-between" style="margin-top:4px">
+                <span class="text-xs text-muted">Menos restrito (0.3)</span>
+                <span class="text-xs font-semibold" id="threshold-value">0.60</span>
+                <span class="text-xs text-muted">Mais restrito (0.9)</span>
+              </div>
+            </div>
+
+            <div style="padding-top:12px;border-top:1px solid var(--border)">
+              <button class="btn btn-primary" id="btn-salvar-admin">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Salvar Configurações
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="/js/app.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/perfil.js"></script>
+</body>
+</html>

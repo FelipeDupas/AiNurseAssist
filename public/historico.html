@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Histórico e Espelho — Ponto Eletrônico</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<div class="layout">
+
+  <!-- === SIDEBAR === gerada dinamicamente por renderSidebar() em app.js -->
+  <aside class="sidebar"></aside>
+
+  <!-- === MAIN === -->
+  <main class="main-content">
+    <header class="page-header">
+      <div class="page-header-left">
+        <!-- Hamburger: visível apenas em mobile (≤ 600px) -->
+        <button class="hamburger-btn" id="hamburger-btn" aria-label="Abrir menu">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
+        <div>
+          <h1>Histórico e Espelho de Ponto</h1>
+          <p>Consulte e exporte seus registros de frequência</p>
+        </div>
+      </div>
+      <div class="page-header-right">
+        <div class="avatar-stack" id="team-avatars">
+          <div class="avatar">CS</div>
+          <div class="avatar" style="background:linear-gradient(135deg,#f472b6,#c084fc)">MA</div>
+          <div class="avatar" style="background:linear-gradient(135deg,#34d399,#059669)">JR</div>
+          <span class="avatar-count">+12</span>
+        </div>
+        <button class="icon-btn" id="notification-btn" title="Notificações" aria-label="Notificações" aria-expanded="false">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span class="notification-dot"></span>
+        </button>
+      </div>
+    </header>
+
+    <div class="page-body">
+
+      <!-- Filtros -->
+      <div class="historico-filters">
+        <div class="date-range-input">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <span id="date-range-label">01/11/2024 – 30/11/2024</span>
+        </div>
+
+        <select class="select-filter" id="filter-status">
+          <option value="">Todos os Status</option>
+          <option value="aprovado">Aprovado</option>
+          <option value="ajustado">Ajustado</option>
+          <option value="atraso">Atraso</option>
+          <option value="pendente">Pendente</option>
+        </select>
+
+        <select class="select-filter" id="filter-tipo">
+          <option value="">Tipo de Marcação</option>
+          <option value="entrada">Entrada</option>
+          <option value="intervalo">Intervalo</option>
+          <option value="saida">Saída</option>
+        </select>
+
+        <div class="historico-filters-right">
+          <button class="btn btn-outline btn-sm" id="btn-email">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+            Enviar por E-mail
+          </button>
+          <button class="btn btn-primary btn-sm" id="btn-export">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+            Exportar PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- Estatísticas do período -->
+      <div class="historico-stats">
+
+        <!-- Horas trabalhadas -->
+        <div class="historico-stat-card">
+          <p class="stat-label">Total de Horas Trabalhadas</p>
+          <p class="stat-value">168h 45m
+            <span class="stat-badge">↑ +2.4%</span>
+          </p>
+          <div class="stat-progress"><div class="stat-progress-fill" style="width:84%"></div></div>
+          <p class="stat-sub">Meta: 160h</p>
+        </div>
+
+        <!-- Ocorrências -->
+        <div class="historico-stat-card">
+          <p class="stat-label">Dias com Ocorrências</p>
+          <p class="stat-value">02 <span class="stat-unit">dias no período</span></p>
+          <div class="stat-tags">
+            <span class="stat-tag atraso">1 Atraso</span>
+            <span class="stat-tag ajuste">1 Ajuste</span>
+          </div>
+        </div>
+
+        <!-- Banco de horas -->
+        <div class="historico-stat-card">
+          <p class="stat-label">Saldo Banco de Horas</p>
+          <p class="stat-value positive">+08h 45m</p>
+          <p class="stat-updated">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            Atualizado em 30/11/2024
+          </p>
+        </div>
+      </div>
+
+      <!-- Tabela de registros -->
+      <div class="table-card">
+        <div class="table-card-header">
+          <h3>Registros do Período</h3>
+          <a href="#" class="link text-sm">Ver Legenda</a>
+        </div>
+
+        <!-- overflow-x:auto garante scroll horizontal em telas pequenas -->
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>DATA</th>
+                <th>ENTRADA 1</th>
+                <th>SAÍDA 1</th>
+                <th>ENTRADA 2</th>
+                <th>SAÍDA 2</th>
+                <th>TOTAL</th>
+                <th>STATUS/OCORRÊNCIA</th>
+                <th>AÇÕES</th>
+              </tr>
+            </thead>
+            <tbody id="historico-tbody">
+              <!-- Preenchido via historico.js -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-footer">
+          <span id="table-count">Mostrando 1 a 3 de 22 registros</span>
+          <div class="pagination" id="pagination">
+            <button id="pg-prev" disabled>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+            <!-- botões de página gerados dinamicamente por historico.js -->
+            <button id="pg-next">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="/js/app.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/historico.js"></script>
+</body>
+</html>

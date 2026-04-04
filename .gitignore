@@ -1,9 +1,31 @@
-node_modules
+# Dependências
+node_modules/
+
+# Variáveis de ambiente — NUNCA commitar
 .env
-*.log
+.env.local
+.env.*.local
+
+# Arquivos de imagem de amostra usados nos testes biométricos
 sample.jpg
 sample_small.jpg
 sample.png
+
+# Logs
+*.log
+npm-debug.log*
+
+# Scripts de debug e teste local
 debug-*.js
 validacao-*.js
 teste-*.js
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Dados persistidos em disco — não commitar (manter apenas o .gitkeep)
+data/*.json
+
+# Claude Code (configurações locais)
+.claude/
