@@ -135,126 +135,6 @@ function isWeekend() {
 }
 
 
-/* ============================================================
-   MOCK DATA — Dados dinâmicos baseados na data atual
-   ============================================================ */
-
-function _fmt(d) {
-  return d.getDate().toString().padStart(2, '0') + '/' +
-         (d.getMonth() + 1).toString().padStart(2, '0');
-}
-
-function _fmtFull(d) {
-  return d.getDate().toString().padStart(2, '0') + '/' +
-         (d.getMonth() + 1).toString().padStart(2, '0') + '/' +
-         d.getFullYear();
-}
-
-function _mesNome(m) {
-  return ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
-          'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][m];
-}
-
-function _diaSemana(d) {
-  return ['Domingo','Segunda-feira','Terça-feira','Quarta-feira',
-          'Quinta-feira','Sexta-feira','Sábado'][d.getDay()];
-}
-
-function _buildSemana(today) {
-  const dow = today.getDay();
-  const mondayOffset = dow === 0 ? -6 : 1 - dow;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + mondayOffset);
-  return ['S','T','Q','Q','S'].map((dia, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    return { dia, valor: d > today ? 0 : 8, max: 8, current: d.toDateString() === today.toDateString() };
-  });
-}
-
-function _lastWorkdays(from, n) {
-  const days = [];
-  const d = new Date(from);
-  while (days.length < n) {
-    if (d.getDay() !== 0 && d.getDay() !== 6) days.push(new Date(d));
-    d.setDate(d.getDate() - 1);
-  }
-  return days;
-}
-
-function buildMockData() {
-  const today = new Date();
-  const dow = today.getDay();
-  const mondayOffset = dow === 0 ? -6 : 1 - dow;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + mondayOffset);
-  const friday = new Date(monday);
-  friday.setDate(monday.getDate() + 4);
-
-  const pendenciaDate = _lastWorkdays(today, 12)[11];
-  const batidasHoje = getTodayBatidas();
-
-  const statusDia = [
-    { label: 'Entrada',      icon: 'check', time: batidasHoje[0] ? '08:00' : 'Pendente', status: batidasHoje[0] ? 'done' : 'pending' },
-    { label: 'Saída Almoço', icon: 'pause', time: batidasHoje[1] ? '12:00' : 'Pendente', status: batidasHoje[1] ? 'done' : 'pending' },
-    { label: 'Retorno',      icon: 'arrow', time: batidasHoje[2] ? '13:30' : 'Pendente', status: batidasHoje[2] ? 'done' : 'pending' },
-    { label: 'Saída',        icon: 'home',  time: batidasHoje[3] ? '17:30' : 'Pendente', status: batidasHoje[3] ? 'done' : 'pending' },
-  ];
-
-  const resumoSemana = {
-    periodo: _fmt(monday) + ' – ' + _fmt(friday),
-    trabalhadas: '32h', meta: '40h',
-    extras: '+2h 15m', bancohoras: '14h 30m',
-    semana: _buildSemana(today),
-  };
-
-  const resumoMes = {
-    periodo: _mesNome(today.getMonth()) + ' ' + today.getFullYear(),
-    trabalhadas: '112h', meta: '176h',
-    extras: '+4h 30m', bancohoras: '14h 30m',
-    semana: [
-      { dia: 'S1', valor: 40, max: 44, current: false },
-      { dia: 'S2', valor: 40, max: 44, current: false },
-      { dia: 'S3', valor: 32, max: 44, current: true  },
-      { dia: 'S4', valor: 0,  max: 44, current: false },
-    ],
-  };
-
-  const statusOptions = ['aprovado','aprovado','aprovado','ajustado','atraso'];
-  const historico = _lastWorkdays(today, 22).map((d, i) => {
-    const status = statusOptions[i % statusOptions.length];
-    const ocorrencia = status === 'atraso' ? 'pendente' : null;
-    const e1 = status === 'atraso' ? '08:' + (10 + (i % 30)).toString().padStart(2,'0') : '08:00';
-    const total = status === 'atraso' ? '07:' + (50 - (i % 20)).toString().padStart(2,'0') : '08:00';
-    return {
-      data: d.getDate().toString().padStart(2,'0') + ' ' + _mesNome(d.getMonth()).slice(0,3) + ' ' + d.getFullYear(),
-      diaSemana: _diaSemana(d),
-      e1, s1: '12:00', e2: i === 5 ? '13:30*' : '13:30', s2: '17:30',
-      total, status, ocorrencia,
-      lat: '-18.3942', lng: '-52.6681',
-    };
-  });
-
-  return {
-    user: {
-      nome: 'Carlos Silva', matricula: '12345',
-      email: 'carlos.silva@chapadaodoceu.go.gov.br',
-      cargo: 'Analista de Sistemas Pleno',
-      lotacao: 'Secretaria de Administração (SECAD)',
-      regime: '40h Semanais (08:00 - 12:00 / 14:00 - 18:00)',
-      admissao: '15/03/2018', telefone: '(64) 99999-8888',
-    },
-    statusDia, resumoSemana, resumoMes,
-    pendencias: [{
-      tipo: 'warning',
-      titulo: 'Ajuste Solicitado',
-      descricao: 'Justificativa pendente para o dia ' + _fmtFull(pendenciaDate) + ' (Falta de marcação na saída).',
-    }],
-    historico,
-  };
-}
-
-const MockData = buildMockData();
 
 
 /* ============================================================
@@ -393,38 +273,16 @@ function initNotifications() {
   headerTitle.textContent = 'Notificações';
   const headerCount = document.createElement('span');
   headerCount.className = 'notif-count';
-  headerCount.textContent = MockData.pendencias.length;
+  headerCount.textContent = '0';
   header.append(headerTitle, headerCount);
 
   const body = document.createElement('div');
   body.className = 'notif-body';
 
-  if (MockData.pendencias.length === 0) {
-    const empty = document.createElement('p');
-    empty.className = 'notif-empty';
-    empty.textContent = 'Nenhuma notificação nova.';
-    body.appendChild(empty);
-  } else {
-    MockData.pendencias.forEach(p => {
-      const item = document.createElement('div');
-      item.className = 'notif-item';
-
-      const iconDiv = document.createElement('div');
-      iconDiv.className = 'notif-item-icon warning';
-      iconDiv.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
-
-      const textDiv = document.createElement('div');
-      textDiv.className = 'notif-item-text';
-      const strong = document.createElement('strong');
-      strong.textContent = p.titulo;        // textContent: sem risco XSS
-      const span = document.createElement('span');
-      span.textContent = p.descricao;       // textContent: sem risco XSS
-      textDiv.append(strong, span);
-
-      item.append(iconDiv, textDiv);
-      body.appendChild(item);
-    });
-  }
+  const empty = document.createElement('p');
+  empty.className = 'notif-empty';
+  empty.textContent = 'Nenhuma notificação nova.';
+  body.appendChild(empty);
 
   const footer = document.createElement('div');
   footer.className = 'notif-footer';
@@ -439,12 +297,7 @@ function initNotifications() {
   // Badge numérico
   const dot = btn.querySelector('.notification-dot');
   if (dot) {
-    if (MockData.pendencias.length > 0) {
-      dot.textContent = MockData.pendencias.length;
-      dot.classList.add('has-count');
-    } else {
-      dot.style.display = 'none';
-    }
+    dot.style.display = 'none';
   }
 
   btn.style.position = 'relative';

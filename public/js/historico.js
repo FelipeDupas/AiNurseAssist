@@ -25,10 +25,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       Atualizado em ${pad(today.getDate())}/${pad(today.getMonth()+1)}/${today.getFullYear()}`;
   }
 
+  // Limpa estatísticas estáticas do HTML (serão preenchidas pelo backend futuramente)
+  const statValues = document.querySelectorAll('.historico-stat-card .stat-value');
+  statValues.forEach(el => {
+    // Preserva o elemento <span> interno (badge/unit) mas zera o texto principal
+    const inner = el.querySelector('span');
+    el.textContent = '—';
+    if (inner) el.appendChild(inner);
+  });
+  const statSub = document.querySelector('.historico-stat-card .stat-sub');
+  if (statSub) statSub.textContent = '—';
+  const statTags = document.querySelector('.historico-stat-card .stat-tags');
+  if (statTags) statTags.innerHTML = '';
+
   // --- Estado da paginação e filtros ---
   const ROWS_PER_PAGE = 10;
   let currentPage = 1;
-  let filteredData = [...MockData.historico];
+  const allData    = [];   // fonte real — preenchida futuramente pelo backend
+  let filteredData = [];
 
   // --- Filtros ---
   const filterStatus = document.getElementById('filter-status');
@@ -38,7 +52,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const status = filterStatus.value;
     const tipo   = filterTipo.value;
 
-    filteredData = MockData.historico.filter(row => {
+    filteredData = allData.filter(row => {
       if (status && row.status !== status) return false;
       // Filtro de tipo: mapeia tipo para colunas do registro
       if (tipo) {

@@ -58,19 +58,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   tickConfirmacao();
   clockInterval = setInterval(tickConfirmacao, 1000);
 
-  // Localização
-  const lat = registro.latitude  || -18.3942;
-  const lng = registro.longitude || -52.6681;
-  const acc = registro.accuracy  || 15;
+  // Localização — exibe apenas se disponível, sem coordenadas fictícias de fallback
+  const lat = registro.latitude;
+  const lng = registro.longitude;
+  const acc = registro.accuracy;
 
-  document.getElementById('conf-accuracy').textContent = `Precisão: ${Math.round(acc)} metros`;
-  document.getElementById('conf-coords').textContent   =
-    `${parseFloat(lat).toFixed(4)}, ${parseFloat(lng).toFixed(4)}`;
+  document.getElementById('conf-accuracy').textContent =
+    acc != null ? `Precisão: ${Math.round(acc)} metros` : 'Precisão: —';
+  document.getElementById('conf-coords').textContent =
+    lat != null && lng != null
+      ? `${parseFloat(lat).toFixed(4)}, ${parseFloat(lng).toFixed(4)}`
+      : '—';
 
-  // Hash de validação
+  // Hash de validação — sem hash fictício de fallback
   const hash = registro.user_id
     ? (registro.user_id.replace(/[^a-f0-9]/gi, '').substring(0, 8) + '...' + registro.user_id.slice(-4))
-    : 'a8f9c2e4...b7d1';
+    : '—';
   document.getElementById('conf-hash').textContent = hash;
 
   document.getElementById('conf-device').textContent =

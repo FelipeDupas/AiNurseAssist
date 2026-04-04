@@ -22,20 +22,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderProximaBatida();
   renderPendencias();
 
-  // Toggle semana / mês com dados reais distintos
+  // Toggle semana / mês — sem dados reais por enquanto
   const btnSemana = document.getElementById('toggle-semana');
   const btnMes    = document.getElementById('toggle-mes');
 
   btnSemana.addEventListener('click', () => {
     btnSemana.classList.add('active');
     btnMes.classList.remove('active');
-    aplicarResumo(MockData.resumoSemana);
+    aplicarResumo(null);
   });
 
   btnMes.addEventListener('click', () => {
     btnMes.classList.add('active');
     btnSemana.classList.remove('active');
-    aplicarResumo(MockData.resumoMes);
+    aplicarResumo(null);
   });
 
   // Navegação sem inline onclick
@@ -46,8 +46,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.location.href = '/bater-ponto.html';
   });
 
-  // Inicializa exibição com os dados da semana atual
-  aplicarResumo(MockData.resumoSemana);
+  // Inicializa exibição sem dados (aguardando integração com backend)
+  aplicarResumo(null);
 
   // Inicia verificação periódica de conexão com o backend
   initSyncPing();
@@ -153,24 +153,9 @@ function renderPendencias() {
   const count = document.getElementById('pendencias-count');
   if (!list) return;
 
-  const pendencias = MockData.pendencias;
-  count.textContent = pendencias.length + (pendencias.length === 1 ? ' Ação' : ' Ações');
+  if (count) count.textContent = '0 Ações';
 
-  const itemsHtml = pendencias.map(p => `
-    <div class="pendencia-item">
-      <div class="pendencia-icon warning">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-          <path d="M12 9v4"/><path d="M12 17h.01"/>
-        </svg>
-      </div>
-      <div class="pendencia-text">
-        <strong>${p.titulo}</strong>
-        <span>${p.descricao}</span>
-      </div>
-    </div>`).join('');
-
-  const semPendencia = `
+  list.innerHTML = `
     <div class="pendencia-item">
       <div class="pendencia-icon success">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -178,11 +163,9 @@ function renderPendencias() {
         </svg>
       </div>
       <div class="pendencia-text">
-        <strong style="color:#4ade80">Nenhum espelho pendente</strong>
+        <strong style="color:#4ade80">Nenhuma pendência no momento</strong>
       </div>
     </div>`;
-
-  list.innerHTML = (pendencias.length ? itemsHtml : '') + semPendencia;
 }
 
 
@@ -191,9 +174,16 @@ function renderPendencias() {
    ============================================================ */
 
 function renderStatusTimeline() {
-  const steps = MockData.statusDia;
   const container = document.getElementById('status-timeline');
   if (!container) return;
+
+  const batidas = getTodayBatidas();
+  const steps = [
+    { label: 'Entrada',      icon: 'check', status: batidas.length >= 1 ? 'done' : 'pending', time: batidas.length >= 1 ? 'Registrado' : 'Pendente' },
+    { label: 'Saída Almoço', icon: 'pause', status: batidas.length >= 2 ? 'done' : 'pending', time: batidas.length >= 2 ? 'Registrado' : 'Pendente' },
+    { label: 'Retorno',      icon: 'arrow', status: batidas.length >= 3 ? 'done' : 'pending', time: batidas.length >= 3 ? 'Registrado' : 'Pendente' },
+    { label: 'Saída',        icon: 'home',  status: batidas.length >= 4 ? 'done' : 'pending', time: batidas.length >= 4 ? 'Registrado' : 'Pendente' },
+  ];
 
   const stepIcons = {
     check: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`,
@@ -218,28 +208,30 @@ function renderStatusTimeline() {
 
 /**
  * Aplica os dados de resumo (semana ou mês) aos elementos da UI.
- * @param {object} resumo - resumoSemana ou resumoMes do MockData
+ * @param {object|null} resumo - objeto com dados de resumo ou null para estado vazio
  */
 function aplicarResumo(resumo) {
-  document.getElementById('resumo-periodo').textContent =
-    resumo.periodo.includes('–')
-      ? `Semana atual (${resumo.periodo})`
-      : resumo.periodo;
+  const periodoEl = document.getElementById('resumo-periodo');
+  if (periodoEl) periodoEl.textContent = resumo ? resumo.periodo : '—';
 
-  // Atualiza valores de horas
   const stats = document.querySelectorAll('.resumo-stat-value');
-  if (stats[0]) stats[0].innerHTML = `${resumo.trabalhadas} <span style="font-size:13px;font-weight:500;color:#64748b">/ ${resumo.meta}</span>`;
-  if (stats[1]) stats[1].textContent = resumo.extras;
-  if (stats[2]) stats[2].textContent = resumo.bancohoras;
+  if (stats[0]) stats[0].innerHTML = resumo
+    ? `${resumo.trabalhadas} <span style="font-size:13px;font-weight:500;color:#64748b">/ ${resumo.meta}</span>`
+    : '—';
+  if (stats[1]) stats[1].textContent = resumo ? resumo.extras    : '—';
+  if (stats[2]) stats[2].textContent = resumo ? resumo.bancohoras : '—';
 
-  renderMiniChart(resumo.semana);
+  renderMiniChart(resumo ? resumo.semana : []);
 }
 
 function renderMiniChart(data) {
-  const max = Math.max(...data.map(d => d.max), 1);
   const container = document.getElementById('mini-chart');
   if (!container) return;
-
+  if (!data || !data.length) {
+    container.innerHTML = '<p style="font-size:11px;color:#94a3b8;text-align:center;padding:8px 0">Sem dados</p>';
+    return;
+  }
+  const max = Math.max(...data.map(d => d.max), 1);
   container.innerHTML = data.map(d => {
     const height = d.valor > 0 ? Math.max(8, (d.valor / max) * 32) : 4;
     return `

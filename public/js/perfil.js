@@ -6,17 +6,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   initSidebar();
   initNotifications();
 
-  const user = { ...MockData.user, ...getUser() };
+  const user = getUser();
 
-  // Preenche os campos com dados do usuário
-  document.getElementById('perfil-nome').textContent       = user.nome || 'Carlos Eduardo Silva';
-  document.getElementById('perfil-matricula').textContent  = user.matricula || '12345-6';
-  document.getElementById('perfil-cargo').textContent      = user.cargo;
-  document.getElementById('perfil-lotacao').textContent    = user.lotacao;
-  document.getElementById('perfil-email').value            = user.email;
-  document.getElementById('perfil-telefone').value         = user.telefone;
-  document.getElementById('perfil-admissao').value         = user.admissao;
-  document.getElementById('perfil-regime').value           = user.regime;
+  // Preenche os campos com dados reais do usuário (localStorage)
+  // Campos não armazenados ficam em branco — sem fallback fictício
+  document.getElementById('perfil-nome').textContent       = user.nome      || '—';
+  document.getElementById('perfil-matricula').textContent  = user.matricula || '—';
+  document.getElementById('perfil-cargo').textContent      = user.cargo     || '';
+  document.getElementById('perfil-lotacao').textContent    = user.lotacao   || '';
+  if (user.email)     document.getElementById('perfil-email').value     = user.email;
+  if (user.telefone)  document.getElementById('perfil-telefone').value  = user.telefone;
+  if (user.admissao)  document.getElementById('perfil-admissao').value  = user.admissao;
+  if (user.regime)    document.getElementById('perfil-regime').value    = user.regime;
 
   const initials = (user.nome || 'CS').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
   document.getElementById('perfil-avatar-initials').textContent = initials;
