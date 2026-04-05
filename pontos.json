@@ -1,0 +1,20 @@
+[
+  {
+    "id": "36798c9e-89a7-4e30-aa58-9e5ac8b1469f",
+    "user_id": "user_123",
+    "latitude": 0,
+    "longitude": 0,
+    "device_time": "2026-04-05T15:32:49",
+    "server_time": "2026-04-05T18:32:51.314Z",
+    "similarity_score": 1
+  },
+  {
+    "id": "0d406c09-efb1-457c-ba31-b93675f84cd2",
+    "user_id": "user_123",
+    "latitude": -22.854779,
+    "longitude": -46.9716677,
+    "device_time": "2026-04-05T17:20:36",
+    "server_time": "2026-04-05T20:21:22.250Z",
+    "similarity_score": 0.47
+  }
+]
