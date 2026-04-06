@@ -6,7 +6,15 @@ const authConfig = require('../config/auth');
  * Verifica o token JWT e injeta userId, tenantId e userRole no req.
  */
 module.exports = (req, res, next) => {
-  const token = req.cookies?.ponto_token;
+  // Tenta obter o token do Cookie (Dashboard) ou do Header Authorization (App Mobile)
+  let token = req.cookies?.ponto_token;
+
+  if (!token && req.headers.authorization) {
+    const parts = req.headers.authorization.split(' ');
+    if (parts.length === 2 && /^Bearer$/i.test(parts[0])) {
+      token = parts[1];
+    }
+  }
 
   if (!token) {
     return res.status(401).json({ error: 'Não autenticado' });
