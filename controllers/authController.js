@@ -49,8 +49,9 @@ class AuthController {
       maxAge:   3600 * 1000,
     });
 
-    // Retorna apenas dados mínimos de exibição
+    // Retorna dados para exibição E o token para compatibilidade com o App Mobile
     return res.json({
+      token, // Adicionado para o App Mobile
       user: {
         nome:      process.env.MOCK_USER_NOME      || 'Servidor',
         matricula: process.env.MOCK_USER_MATRICULA || '00000',

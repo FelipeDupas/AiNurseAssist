@@ -4,14 +4,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'database_service.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.68.110:3000'; 
+  static const String baseUrl = 'http://localhost:3000'; 
 
-  Future<bool> login(String email, String password) async {
+  Future<bool> login(String cpf, String password) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password}),
+        body: jsonEncode({'cpf': cpf, 'password': password}),
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {

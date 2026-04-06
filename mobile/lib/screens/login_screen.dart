@@ -12,7 +12,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController(text: 'admin@example.com');
+  final _cpfController = TextEditingController(text: '000.000.000-00');
   final _passwordController = TextEditingController(text: '123');
   final _apiService = ApiService();
   bool _isLoading = false;
@@ -20,7 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void _login() async {
     setState(() => _isLoading = true);
     final success = await _apiService.login(
-      _emailController.text,
+      _cpfController.text,
       _passwordController.text,
     );
     setState(() => _isLoading = false);
@@ -47,7 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            TextField(controller: _emailController, decoration: const InputDecoration(labelText: 'Email')),
+            TextField(controller: _cpfController, decoration: const InputDecoration(labelText: 'CPF')),
             TextField(controller: _passwordController, decoration: const InputDecoration(labelText: 'Senha'), obscureText: true),
             const SizedBox(height: 20),
             _isLoading 
