@@ -1,6 +1,10 @@
 const BiometricService = require('../services/biometricService');
 
 class BiometricController {
+  /**
+   * Verifica a identidade do usuário por reconhecimento facial.
+   * Recebe uma imagem em base64 e retorna se o rosto corresponde ao perfil.
+   */
   async verify(req, res) {
     try {
       const { image_base64 } = req.body;
@@ -14,10 +18,12 @@ class BiometricController {
       return res.json(result);
 
     } catch (error) {
-      console.error('DETALHE DO ERRO NO SERVIDOR:', error); // Log para debug
+      console.error('Erro na verificacao biometrica:', error);
+
       if (error.message === 'Nenhum rosto detectado na imagem') {
         return res.status(422).json({ error: error.message });
       }
+
       return res.status(500).json({ error: 'Erro ao processar biometria', message: error.message });
     }
   }

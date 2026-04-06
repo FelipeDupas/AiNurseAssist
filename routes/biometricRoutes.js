@@ -3,6 +3,8 @@ const BiometricController = require('../controllers/biometricController');
 const authMiddleware = require('../middlewares/authMiddleware');
 
 const routes = new Router();
+
+// Rota protegida — requer token JWT válido
 routes.post('/biometric/verify', authMiddleware, BiometricController.verify);
 
 module.exports = routes;

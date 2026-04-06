@@ -2,12 +2,16 @@ const RegistroPontoService = require('../services/registroPontoService');
 const DashboardService = require('../services/dashboardService');
 
 class RegistroPontoController {
+  /**
+   * Registra uma batida de ponto para o usuário autenticado.
+   * Valida biometria facial e localização antes de persistir.
+   */
   async store(req, res) {
     const { userId } = req; // Obtido pelo middleware JWT
     try {
       const { image_base64, latitude, longitude, device_time } = req.body;
 
-      // Validação básica dos inputs
+      // Todos os campos são obrigatórios para garantir a integridade do registro
       if (!image_base64 || latitude === undefined || longitude === undefined || !device_time) {
         return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
       }
@@ -16,7 +20,7 @@ class RegistroPontoController {
         image_base64,
         latitude,
         longitude,
-        device_time
+        device_time,
       });
 
       return res.status(201).json({
@@ -25,16 +29,17 @@ class RegistroPontoController {
           user_id: registro.user_id,
           device_time: registro.device_time,
           server_time: registro.server_time,
-          similarity_score: registro.similarity_score
-        }
+          similarity_score: registro.similarity_score,
+        },
       });
 
     } catch (error) {
-      console.error('ERRO NO REGISTRO DE PONTO:', error);
+      console.error('Erro no registro de ponto:', error);
 
-      // Atualiza status para erro no dashboard
+      // Atualiza status para erro no dashboard de monitoramento
       await DashboardService.atualizarStatus(userId, 'error', error.message);
 
+      // Erros de negócio (ex: face não reconhecida, duplicidade) têm status definido
       if (error.status) {
         return res.status(error.status).json({ error: error.message });
       }

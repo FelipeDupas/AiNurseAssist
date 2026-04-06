@@ -5,8 +5,10 @@ const authMiddleware = require('../middlewares/authMiddleware');
 
 const routes = new Router();
 
-// Rotas protegidas por JWT
+// Todas as rotas de registro de ponto exigem autenticação JWT
 routes.post('/registro-ponto', authMiddleware, RegistroPontoController.store);
+
+// Geração do espelho de ponto em PDF
 routes.get('/registro-ponto/espelho', authMiddleware, EspelhoController.download);
 
 module.exports = routes;
