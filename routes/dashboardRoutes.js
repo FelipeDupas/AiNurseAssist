@@ -1,9 +1,9 @@
-const { Router } = require('express');
+const express = require('express');
+const router = express.Router();
 const DashboardController = require('../controllers/dashboardController');
 const authMiddleware = require('../middlewares/authMiddleware');
 
-const routes = new Router();
-routes.use(authMiddleware);
-routes.get('/dashboard', DashboardController.index);
+// Rota da API (agora aberta para facilitar o monitoramento em ambiente de teste)
+router.get('/sync-status', DashboardController.getSyncStatus);
 
-module.exports = routes;
+module.exports = router;

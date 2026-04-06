@@ -17,6 +17,7 @@ class App {
   middlewares() {
     this.server.use(cors());
     this.server.use(express.json({ limit: '50mb' })); // Aumentado para suportar Base64 grandes
+    this.server.use(express.static('public')); // Permite acessar o dashboard.html
   }
 
   routes() {

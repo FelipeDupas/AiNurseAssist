@@ -2,6 +2,7 @@ const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
 const BiometricService = require('./biometricService');
+const DashboardService = require('./dashboardService');
 
 class RegistroPontoService {
   constructor() {
@@ -32,6 +33,8 @@ class RegistroPontoService {
     const jaExiste = registros.find(r => r.user_id === userId && r.device_time === device_time);
     if (jaExiste) {
       console.log(`[RegistroPontoService] Registro duplicado detectado para ${userId} em ${device_time}. Ignorando.`);
+      // Atualiza status para o dashboard mesmo se duplicado (indica tentativa de sync)
+      await DashboardService.atualizarStatus(userId, 'online');
       return jaExiste;
     }
 
@@ -75,6 +78,9 @@ class RegistroPontoService {
     registros.push(novoRegistro);
     this._salvarRegistros(registros);
     console.log(`[RegistroPontoService] ✅ Ponto salvo com sucesso no arquivo JSON para o usuário ${userId}!`);
+
+    // Atualiza status para o dashboard
+    await DashboardService.atualizarStatus(userId, 'online');
 
     return novoRegistro;
   }

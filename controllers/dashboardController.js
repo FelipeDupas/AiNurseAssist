@@ -1,12 +1,13 @@
+const DashboardService = require('../services/dashboardService');
+
 class DashboardController {
-  async index(req, res) {
-    return res.json({
-      message: 'Bem-vindo ao Dashboard!',
-      auth_data: {
-        user_id: req.userId,
-        tenant_id: req.tenantId
-      }
-    });
+  async getSyncStatus(req, res) {
+    try {
+      const statusList = DashboardService.getSyncStatusList();
+      return res.json(statusList);
+    } catch (error) {
+      return res.status(500).json({ error: 'Erro ao carregar status de sincronização' });
+    }
   }
 }
 

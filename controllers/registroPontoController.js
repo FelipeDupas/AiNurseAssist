@@ -1,9 +1,10 @@
 const RegistroPontoService = require('../services/registroPontoService');
+const DashboardService = require('../services/dashboardService');
 
 class RegistroPontoController {
   async store(req, res) {
+    const { userId } = req; // Obtido pelo middleware JWT
     try {
-      const { userId } = req; // Obtido pelo middleware JWT
       const { image_base64, latitude, longitude, device_time } = req.body;
 
       // Validação básica dos inputs
@@ -30,6 +31,9 @@ class RegistroPontoController {
 
     } catch (error) {
       console.error('ERRO NO REGISTRO DE PONTO:', error);
+
+      // Atualiza status para erro no dashboard
+      await DashboardService.atualizarStatus(userId, 'error', error.message);
 
       if (error.status) {
         return res.status(error.status).json({ error: error.message });
