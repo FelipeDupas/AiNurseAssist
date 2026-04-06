@@ -19,9 +19,11 @@ class AuthController {
       return res.status(500).json({ error: 'Serviço de autenticação indisponível' });
     }
 
-    const cpfNormalizado = String(cpf || '').replace(/\D/g, '');
+    const cpfNormalizado  = String(cpf || '').replace(/\D/g, '');
+    const mockCpfNormalizado = String(mockCpf || '').replace(/\D/g, '');
 
-    if (cpfNormalizado !== mockCpf) {
+    if (cpfNormalizado !== mockCpfNormalizado) {
+      console.log(`[AuthController] Falha no login: CPF recebido (${cpfNormalizado}) não bate com o esperado (${mockCpfNormalizado})`);
       return res.status(401).json({ error: 'Usuário não encontrado' });
     }
 
