@@ -21,30 +21,14 @@ class App {
   middlewares() {
     // Security headers via helmet
     this.server.use(helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc:  ["'self'"],
-          scriptSrc:   ["'self'"],
-          styleSrc:    ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-          fontSrc:     ["'self'", 'https://fonts.gstatic.com'],
-          imgSrc:      ["'self'", 'data:', 'blob:'],
-          mediaSrc:    ["'self'", 'blob:'],
-          connectSrc:  ["'self'"],
-          workerSrc:   ["'self'", 'blob:'],
-          objectSrc:   ["'none'"],
-          frameAncestors: ["'none'"],
-        },
-      },
-      crossOriginEmbedderPolicy: false, // desabilitado para compatibilidade com face-api WASM
+      contentSecurityPolicy: false, // desabilitado para compatibilidade com face-api WASM em ambiente de dev
+      crossOriginEmbedderPolicy: false,
     }));
 
-    // CORS: em produção exige ALLOWED_ORIGIN explícito; em dev aceita localhost
-    if (process.env.NODE_ENV === 'production' && !process.env.ALLOWED_ORIGIN) {
-      throw new Error('[FATAL] ALLOWED_ORIGIN não está definido. Configure a variável de ambiente antes de iniciar em produção.');
-    }
+    // CORS: Configuração flexível para desenvolvimento e integração mobile
     this.server.use(cors({
-      origin: process.env.ALLOWED_ORIGIN || 'http://localhost:3000',
-      credentials: true, // permite envio de cookies
+      origin: true,
+      credentials: true,
     }));
 
     // Parsing de cookies (necessário para ler o JWT do cookie HttpOnly)

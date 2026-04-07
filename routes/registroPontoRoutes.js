@@ -7,6 +7,7 @@ const routes = new Router();
 
 // Todas as rotas de registro de ponto exigem autenticação JWT
 routes.post('/registro-ponto', authMiddleware, RegistroPontoController.store);
+routes.get('/registro-ponto', authMiddleware, RegistroPontoController.index);
 
 // Geração do espelho de ponto em PDF
 routes.get('/registro-ponto/espelho', authMiddleware, EspelhoController.download);

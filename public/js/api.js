@@ -105,6 +105,10 @@ const Api = {
     });
   },
 
+  async getRegistros() {
+    return this._request('GET', '/registro-ponto');
+  },
+
   /* ── ADMIN CONFIG ──────────────────────────────────────── */
 
   async getAdminConfig() {

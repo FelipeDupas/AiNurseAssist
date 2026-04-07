@@ -41,8 +41,56 @@ document.addEventListener('DOMContentLoaded', async () => {
   // --- Estado da paginação e filtros ---
   const ROWS_PER_PAGE = 10;
   let currentPage = 1;
-  const allData    = [];   // fonte real — preenchida futuramente pelo backend
+  let allData    = [];   // fonte real — preenchida pelo backend
   let filteredData = [];
+
+  async function fetchHistorico() {
+    try {
+      const registrosRaw = await Api.getRegistros().catch(() => []);
+      
+      // Agrupar registros por dia para preencher a tabela (E1, S1, E2, S2)
+      const agrupados = {};
+      
+      registrosRaw.forEach(r => {
+        const dataStr = new Date(r.device_time || r.server_time).toLocaleDateString('pt-BR');
+        if (!agrupados[dataStr]) {
+          agrupados[dataStr] = {
+            data: dataStr,
+            diaSemana: new Date(r.device_time || r.server_time).toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''),
+            pontos: []
+          };
+        }
+        agrupados[dataStr].pontos.push(new Date(r.device_time || r.server_time));
+      });
+
+      allData = Object.values(agrupados).map(dia => {
+        // Ordena pontos do dia
+        dia.pontos.sort((a, b) => a - b);
+        const format = (d) => d ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null;
+        
+        return {
+          data: dia.data,
+          diaSemana: dia.diaSemana,
+          e1: format(dia.pontos[0]),
+          s1: format(dia.pontos[1]),
+          e2: format(dia.pontos[2]),
+          s2: format(dia.pontos[3]),
+          total: dia.pontos.length >= 2 ? 'Calculando...' : '—',
+          status: 'aprovado',
+          ocorrencia: null,
+          lat: registrosRaw[0].latitude, // simplificado para o mock
+          lng: registrosRaw[0].longitude
+        };
+      });
+
+      filteredData = [...allData];
+      renderPage();
+    } catch (err) {
+      console.error("Erro ao carregar histórico:", err);
+    }
+  }
+
+  fetchHistorico();
 
   // --- Filtros ---
   const filterStatus = document.getElementById('filter-status');
@@ -248,72 +296,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('btn-fechar-legenda')?.addEventListener('click', closeModal);
   });
 
-  // --- Exportar PDF (via Blob URL — sem document.write e sem XSS) ---
-  document.getElementById('btn-export').addEventListener('click', () => {
-    const user   = getUser();
-    const periodo = document.getElementById('date-range-label').textContent;
+  // --- Exportar PDF Oficial (Chamada da nossa API backend) ---
+  document.getElementById('btn-export').addEventListener('click', async () => {
+    try {
+      showToast('Gerando espelho de ponto oficial...', 'info');
+      
+      const response = await fetch('/registro-ponto/espelho', {
+        headers: { 'credentials': 'include' }
+      });
 
-    // Escapa todos os dados externos antes de inserir no HTML
-    const nomeSeguro    = escHtml(user.nome || 'Servidor');
-    const periodoSeguro = escHtml(periodo);
+      if (!response.ok) throw new Error('Falha ao gerar PDF');
 
-    const rows = filteredData.map(r => `
-      <tr>
-        <td>${escHtml(r.data)}</td>
-        <td>${escHtml(r.diaSemana)}</td>
-        <td>${escHtml(r.e1  || '—')}</td>
-        <td>${escHtml(r.s1  || '—')}</td>
-        <td>${escHtml((r.e2 || '—').replace('*', ''))}</td>
-        <td>${escHtml(r.s2  || '—')}</td>
-        <td>${escHtml(r.total || '—')}</td>
-        <td>${escHtml(r.status)}</td>
-      </tr>`).join('');
-
-    const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>Espelho de Ponto</title>
-  <style>
-    body{font-family:Arial,sans-serif;font-size:12px;padding:20px}
-    h2{margin-bottom:4px}p{color:#64748b;margin-bottom:16px}
-    table{width:100%;border-collapse:collapse}
-    th,td{border:1px solid #e2e8f0;padding:7px 10px;text-align:left}
-    th{background:#f8fafc;font-weight:600}
-    @media print{.no-print{display:none}}
-  </style>
-</head>
-<body>
-  <h2>Espelho de Ponto &mdash; ${nomeSeguro}</h2>
-  <p>Per&iacute;odo: ${periodoSeguro}</p>
-  <table>
-    <thead>
-      <tr>
-        <th>Data</th><th>Dia</th><th>E1</th><th>S1</th>
-        <th>E2</th><th>S2</th><th>Total</th><th>Status</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>
-  <br>
-  <button class="no-print" id="btn-print" type="button" style="padding:8px 16px;cursor:pointer">
-    Imprimir / Salvar PDF
-  </button>
-  <script>
-    document.getElementById('btn-print')?.addEventListener('click', function () {
-      window.print();
-    });
-  </script>
-</body>
-</html>`;
-
-    // Cria Blob para evitar popup blocker e document.write
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url  = URL.createObjectURL(blob);
-    const win  = window.open(url, '_blank');
-    // Revoga a URL após a janela ter tempo de carregar
-    if (win) setTimeout(() => URL.revokeObjectURL(url), 2000);
-    else showToast('Popup bloqueado. Permita popups para exportar o PDF.', 'warning');
+      const blob = await response.blob();
+      const url  = window.URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `espelho-ponto.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      
+      showToast('PDF gerado com sucesso!', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Erro ao baixar o espelho oficial.', 'error');
+    }
   });
 
   // --- Enviar por E-mail ---

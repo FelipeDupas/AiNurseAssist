@@ -30,6 +30,11 @@ class RegistroPontoService {
     fs.writeFileSync(this.filePath, JSON.stringify(registros, null, 2));
   }
 
+  async listarPorUsuario(userId) {
+    const registros = this._lerRegistros();
+    return registros.filter(r => r.user_id === userId);
+  }
+
   /**
    * Registra uma batida de ponto após validar biometria e duplicidade.
    */

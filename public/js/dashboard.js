@@ -17,9 +17,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderAvisoFimDeSemana();
   }
 
-  // Renderiza componentes do dashboard
-  renderStatusTimeline();
-  renderProximaBatida();
+  // Busca registros reais do servidor
+  try {
+    const registros = await Api.getRegistros();
+    console.log('Registros recebidos:', registros);
+    
+    // Renderiza componentes do dashboard com dados reais
+    renderStatusTimeline(registros || []);
+    renderProximaBatida(registros || []);
+  } catch (err) {
+    console.error('Erro ao carregar registros para o dashboard:', err);
+    renderStatusTimeline([]);
+    renderProximaBatida([]);
+  }
+  
   renderPendencias();
 
   // Toggle semana / mês — sem dados reais por enquanto
@@ -119,11 +130,19 @@ function renderAvisoFimDeSemana() {
    PRÓXIMA BATIDA — Dinâmica baseada nas batidas do dia
    ============================================================ */
 
-function renderProximaBatida() {
+function renderProximaBatida(registros = []) {
   const msgEl = document.getElementById('proxima-batida-msg');
   if (!msgEl) return;
 
-  const tipo = getProximaBatidaTipo();
+  const hoje = new Date().toISOString().slice(0, 10);
+  const batidasHoje = registros.filter(r => (r.device_time || r.server_time).startsWith(hoje));
+  const count = batidasHoje.length;
+
+  let tipo = 'entrada';
+  if (count === 1 || count === 2) tipo = 'intervalo';
+  else if (count === 3) tipo = 'saida';
+  else if (count >= 4) tipo = 'concluido';
+
   const mensagens = {
     entrada:   'Registre sua entrada agora.',
     intervalo: 'Registre sua saída/retorno do almoço.',
@@ -173,16 +192,20 @@ function renderPendencias() {
    STATUS TIMELINE
    ============================================================ */
 
-function renderStatusTimeline() {
+function renderStatusTimeline(registros = []) {
   const container = document.getElementById('status-timeline');
   if (!container) return;
 
-  const batidas = getTodayBatidas();
+  const hoje = new Date().toISOString().slice(0, 10);
+  const batidasHoje = registros.filter(r => (r.device_time || r.server_time).startsWith(hoje));
+
+  const formatarHora = (iso) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
   const steps = [
-    { label: 'Entrada',      icon: 'check', status: batidas.length >= 1 ? 'done' : 'pending', time: batidas.length >= 1 ? 'Registrado' : 'Pendente' },
-    { label: 'Saída Almoço', icon: 'pause', status: batidas.length >= 2 ? 'done' : 'pending', time: batidas.length >= 2 ? 'Registrado' : 'Pendente' },
-    { label: 'Retorno',      icon: 'arrow', status: batidas.length >= 3 ? 'done' : 'pending', time: batidas.length >= 3 ? 'Registrado' : 'Pendente' },
-    { label: 'Saída',        icon: 'home',  status: batidas.length >= 4 ? 'done' : 'pending', time: batidas.length >= 4 ? 'Registrado' : 'Pendente' },
+    { label: 'Entrada',      icon: 'check', status: batidasHoje.length >= 1 ? 'done' : 'pending', time: batidasHoje.length >= 1 ? `Registrado às ${formatarHora(batidasHoje[0].device_time || batidasHoje[0].server_time)}` : 'Pendente' },
+    { label: 'Saída Almoço', icon: 'pause', status: batidasHoje.length >= 2 ? 'done' : 'pending', time: batidasHoje.length >= 2 ? `Registrado às ${formatarHora(batidasHoje[1].device_time || batidasHoje[1].server_time)}` : 'Pendente' },
+    { label: 'Retorno',      icon: 'arrow', status: batidasHoje.length >= 3 ? 'done' : 'pending', time: batidasHoje.length >= 3 ? `Registrado às ${formatarHora(batidasHoje[2].device_time || batidasHoje[2].server_time)}` : 'Pendente' },
+    { label: 'Saída',        icon: 'home',  status: batidasHoje.length >= 4 ? 'done' : 'pending', time: batidasHoje.length >= 4 ? `Registrado às ${formatarHora(batidasHoje[3].device_time || batidasHoje[3].server_time)}` : 'Pendente' },
   ];
 
   const stepIcons = {

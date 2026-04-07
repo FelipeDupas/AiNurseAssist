@@ -3,6 +3,19 @@ const DashboardService = require('../services/dashboardService');
 
 class RegistroPontoController {
   /**
+   * Lista os registros de ponto do usuário logado.
+   */
+  async index(req, res) {
+    try {
+      const { userId } = req;
+      const registros = await RegistroPontoService.listarPorUsuario(userId);
+      return res.json(registros);
+    } catch (error) {
+      return res.status(500).json({ error: 'Erro ao listar pontos' });
+    }
+  }
+
+  /**
    * Registra uma batida de ponto para o usuário autenticado.
    * Valida biometria facial e localização antes de persistir.
    */

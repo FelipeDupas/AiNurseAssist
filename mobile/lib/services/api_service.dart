@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'database_service.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:3000'; 
+  static const String baseUrl = 'http://192.168.68.110:3000'; 
 
   Future<bool> login(String cpf, String password) async {
     try {

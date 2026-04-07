@@ -52,5 +52,14 @@
     "device_time": "2026-04-06T10:51:49",
     "server_time": "2026-04-06T13:51:49.876Z",
     "similarity_score": 0.51
+  },
+  {
+    "id": "5a915173-15be-4c18-92fa-fa284a4eaa3b",
+    "user_id": "user_123",
+    "latitude": -22.8547821,
+    "longitude": -46.9716725,
+    "device_time": "2026-04-06T15:39:28",
+    "server_time": "2026-04-06T18:39:29.537Z",
+    "similarity_score": 0.52
   }
 ]

@@ -23,13 +23,16 @@ class AuthController {
     const mockCpfNormalizado = String(mockCpf || '').replace(/\D/g, '');
 
     if (cpfNormalizado !== mockCpfNormalizado) {
-      console.log(`[AuthController] Falha no login: CPF recebido (${cpfNormalizado}) não bate com o esperado (${mockCpfNormalizado})`);
+      console.log(`[AuthController] ❌ Falha no login: CPF recebido (${cpfNormalizado}) não bate com o esperado (${mockCpfNormalizado})`);
       return res.status(401).json({ error: 'Usuário não encontrado' });
     }
 
     if (String(password || '') !== mockPassword) {
+      console.log(`[AuthController] ❌ Falha no login para CPF ${cpfNormalizado}: Senha incorreta.`);
       return res.status(401).json({ error: 'Senha incorreta' });
     }
+
+    console.log(`[AuthController] ✅ Login bem-sucedido para o CPF: ${cpfNormalizado}`);
 
     // Inclui role no payload para controle de acesso por papel
     const token = jwt.sign(
