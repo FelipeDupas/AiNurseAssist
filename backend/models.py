@@ -15,7 +15,6 @@ class User(Base):
     specialty = Column(String, default="Clínico Geral")
     is_active = Column(Boolean, default=True)
     
-    # Um médico tem vários pacientes e vários casos
     patients = relationship("Patient", back_populates="owner")
     cases = relationship("Case", back_populates="owner")
 
@@ -23,31 +22,31 @@ class Patient(Base):
     __tablename__ = "patients"
     id = Column(Integer, primary_key=True, index=True)
     full_name = Column(String, index=True)
-    birth_date = Column(String) # A data fixa para cálculo de idade
+    birth_date = Column(String)
     gender = Column(String)
-    medical_history = Column(Text, nullable=True) # Histórico base (DM, HAS, Alergias)
+    cpf = Column(String, nullable=True)           # NOVO: CPF do paciente
+    mother_name = Column(String, nullable=True)   # NOVO: Nome da mãe
+    medical_history = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
     
     owner_id = Column(Integer, ForeignKey("users.id"))
     owner = relationship("User", back_populates="patients")
-    
-    # Um paciente pode ter vários casos (consultas/retornos)
     cases = relationship("Case", back_populates="patient", cascade="all, delete-orphan")
 
 class Case(Base):
     __tablename__ = "cases"
     id = Column(Integer, primary_key=True, index=True)
     
-    # Vínculo com o paciente
     patient_id = Column(Integer, ForeignKey("patients.id"))
     patient = relationship("Patient", back_populates="cases")
     
+    anamnesis = Column(Text, nullable=True)       # NOVO: Anamnese médica geral
+    hpma = Column(Text, nullable=True)            # NOVO: História Presente Moléstia Atual
     symptoms = Column(Text)
     exams_input = Column(Text, nullable=True)
     ai_analysis_json = Column(JSON, nullable=True)
     status = Column(String, default="Pendente")
     
-    # Usando func.now() para ter data e hora exatas da consulta
     created_at = Column(DateTime, default=func.now())
     
     owner_id = Column(Integer, ForeignKey("users.id"))

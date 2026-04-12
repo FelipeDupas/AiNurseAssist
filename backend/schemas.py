@@ -31,10 +31,12 @@ class UserResponse(UserBase):
 
 # --- PATIENT SCHEMAS ---
 class PatientBase(BaseModel):
-    full_name: str       # Mudou de fullName para full_name
-    birth_date: str      # Mudou de birthDate para birth_date
+    full_name: str
+    birth_date: str
     gender: str
-    medical_history: Optional[str] = "" # Mudou de medicalHistory para medical_history
+    cpf: Optional[str] = None              # NOVO: CPF
+    mother_name: Optional[str] = None      # NOVO: Nome da mãe
+    medical_history: Optional[str] = ""
 
 class PatientResponse(PatientBase):
     id: int
@@ -46,6 +48,8 @@ class PatientResponse(PatientBase):
 class CaseCreate(BaseModel):
     patient_id: Optional[int] = None
     patient_data: Optional[PatientBase] = None
+    anamnesis: Optional[str] = ""          # NOVO: Anamnese geral
+    hpma: Optional[str] = ""              # NOVO: HPMA
     symptoms: str
     exams: Optional[str] = ""
 
@@ -63,7 +67,11 @@ class CaseResponse(BaseModel):
 class CaseDetailResponse(CaseResponse):
     birth_date: Optional[str] = None
     gender: Optional[str] = None
+    cpf: Optional[str] = None
+    mother_name: Optional[str] = None
     medical_history: Optional[str] = None
+    anamnesis: Optional[str] = None
+    hpma: Optional[str] = None
     symptoms: str
     exams_input: Optional[str] = None
     

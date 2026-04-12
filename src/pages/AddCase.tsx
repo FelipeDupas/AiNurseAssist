@@ -6,14 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Send, Stethoscope } from "lucide-react";
+import { ArrowLeft, Send, Stethoscope, User, ClipboardList, FileText } from "lucide-react";
 import { toast } from "sonner";
 
 const AddCase = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   
-  // Recupera as informações do médico logado do localStorage
   const medicoString = localStorage.getItem("medico");
   const medico = medicoString ? JSON.parse(medicoString) : null;
 
@@ -21,25 +20,41 @@ const AddCase = () => {
     fullName: "",
     birthDate: "",
     gender: "",
+    cpf: "",
+    motherName: "",
     medicalHistory: "",
+    anamnesis: "",
+    hpma: "",
     symptoms: "",
     exams: ""
   });
 
+  // Formata CPF enquanto digita: 000.000.000-00
+  const formatCPF = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 11);
+    return digits
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Verificação de segurança: garante que o usuário está logado
     if (!medico || !medico.id) {
       toast.error("Erro de sessão. Faça login novamente.");
       navigate("/login");
       return;
     }
 
+    if (!formData.gender) {
+      toast.error("Por favor, selecione o sexo do paciente.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Ajuste crucial: Enviamos os dados no formato que o novo Back-end espera (separado)
       const response = await fetch(`http://127.0.0.1:8000/cases/?owner_id=${medico.id}`, {
         method: "POST",
         headers: {
@@ -47,11 +62,15 @@ const AddCase = () => {
         },
         body: JSON.stringify({
           patient_data: {
-            full_name: formData.fullName,       // O Backend espera full_name
-            birth_date: formData.birthDate,     // O Backend espera birth_date
+            full_name: formData.fullName,
+            birth_date: formData.birthDate,
             gender: formData.gender,
-            medical_history: formData.medicalHistory // O Backend espera medical_history
+            cpf: formData.cpf || null,
+            mother_name: formData.motherName || null,
+            medical_history: formData.medicalHistory
           },
+          anamnesis: formData.anamnesis,
+          hpma: formData.hpma,
           symptoms: formData.symptoms,
           exams: formData.exams
         }),
@@ -59,9 +78,7 @@ const AddCase = () => {
 
       if (response.ok) {
         const data = await response.json();
-        toast.success("Paciente cadastrado e caso analisado pela IA!");
-        
-        // Redireciona para a visualização do caso usando o ID retornado
+        toast.success("Caso analisado pela IA com sucesso!");
         navigate(`/case/${data.id}`); 
       } else {
         const error = await response.json();
@@ -102,24 +119,31 @@ const AddCase = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Adicionar Caso Clínico</h1>
           <p className="text-muted-foreground">
-            Preencha os dados do paciente. Ele será cadastrado automaticamente no sistema.
+            Preencha os dados do paciente e a anamnese para que a IA realize a análise clínica.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          {/* SEÇÃO 1: DADOS FIXOS DO PACIENTE */}
-          <Card className="shadow-[var(--shadow-elevated)] mb-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+
+          {/* SEÇÃO 1: DADOS DO PACIENTE */}
+          <Card className="shadow-[var(--shadow-elevated)]">
             <CardHeader>
-              <CardTitle>Dados do Paciente</CardTitle>
-              <CardDescription>Informações para o prontuário permanente</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <User className="w-5 h-5 text-primary" />
+                Dados do Paciente
+              </CardTitle>
+              <CardDescription>
+                Informações obrigatórias para o prontuário. CPF e Nome da Mãe são essenciais para conformidade legal.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Nome + Data de Nascimento */}
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="fullName">Nome Completo *</Label>
                   <Input
                     id="fullName"
-                    placeholder="Nome do paciente"
+                    placeholder="Nome completo do paciente"
                     value={formData.fullName}
                     onChange={(e) => setFormData({...formData, fullName: e.target.value})}
                     required
@@ -137,6 +161,7 @@ const AddCase = () => {
                 </div>
               </div>
 
+              {/* Sexo + CPF */}
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="gender">Sexo *</Label>
@@ -144,8 +169,8 @@ const AddCase = () => {
                     value={formData.gender} 
                     onValueChange={(value) => setFormData({...formData, gender: value})}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
+                    <SelectTrigger id="gender">
+                      <SelectValue placeholder="Selecione o sexo" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="masculino">Masculino</SelectItem>
@@ -154,44 +179,113 @@ const AddCase = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cpf">
+                    CPF <span className="text-xs text-primary font-semibold">(crítico para registros)</span>
+                  </Label>
+                  <Input
+                    id="cpf"
+                    placeholder="000.000.000-00"
+                    value={formData.cpf}
+                    onChange={(e) => setFormData({...formData, cpf: formatCPF(e.target.value)})}
+                    maxLength={14}
+                  />
+                </div>
               </div>
 
+              {/* Nome da Mãe */}
+              <div className="space-y-2">
+                <Label htmlFor="motherName">
+                  Nome da Mãe <span className="text-xs text-primary font-semibold">(crítico para registros)</span>
+                </Label>
+                <Input
+                  id="motherName"
+                  placeholder="Nome completo da mãe do paciente"
+                  value={formData.motherName}
+                  onChange={(e) => setFormData({...formData, motherName: e.target.value})}
+                />
+              </div>
+
+              {/* Histórico Médico Base */}
               <div className="space-y-2">
                 <Label htmlFor="medicalHistory">Histórico Médico Base</Label>
                 <Textarea
                   id="medicalHistory"
-                  placeholder="Doenças crônicas, alergias e cirurgias que ficarão salvas no prontuário..."
+                  placeholder="Doenças crônicas, alergias, cirurgias anteriores, medicações contínuas..."
                   value={formData.medicalHistory}
                   onChange={(e) => setFormData({...formData, medicalHistory: e.target.value})}
-                  rows={4}
+                  rows={3}
                 />
               </div>
             </CardContent>
           </Card>
 
-          {/* SEÇÃO 2: DADOS DA CONSULTA ATUAL */}
-          <Card className="shadow-[var(--shadow-elevated)] mb-6 border-l-4 border-l-primary">
+          {/* SEÇÃO 2: ANAMNESE MÉDICA */}
+          <Card className="shadow-[var(--shadow-elevated)] border-l-4 border-l-blue-500">
             <CardHeader>
-              <CardTitle>Sintomas da Consulta</CardTitle>
-              <CardDescription>O que o paciente apresenta no momento</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="w-5 h-5 text-blue-500" />
+                Anamnese Médica
+              </CardTitle>
+              <CardDescription>
+                Coleta sistemática de informações sobre o histórico de saúde do paciente nesta consulta
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Anamnese Geral */}
+              <div className="space-y-2">
+                <Label htmlFor="anamnesis">Anamnese Geral</Label>
+                <Textarea
+                  id="anamnesis"
+                  placeholder="Descreva a queixa principal, hábitos de vida (tabagismo, etilismo, sedentarismo), histórico familiar, vacinas, antecedentes pessoais relevantes..."
+                  value={formData.anamnesis}
+                  onChange={(e) => setFormData({...formData, anamnesis: e.target.value})}
+                  rows={5}
+                />
+              </div>
+
+              {/* HPMA */}
+              <div className="space-y-2">
+                <Label htmlFor="hpma">
+                  HPMA — História da Presente Moléstia Atual
+                </Label>
+                <Textarea
+                  id="hpma"
+                  placeholder="Descreva de forma detalhada e cronológica: quando iniciou, como iniciou, fatores de melhora/piora, irradiação da dor, sintomas associados, tratamentos já realizados para esta queixa, evolução do quadro..."
+                  value={formData.hpma}
+                  onChange={(e) => setFormData({...formData, hpma: e.target.value})}
+                  rows={6}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* SEÇÃO 3: CONSULTA ATUAL */}
+          <Card className="shadow-[var(--shadow-elevated)] border-l-4 border-l-primary">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" />
+                Dados da Consulta Atual
+              </CardTitle>
+              <CardDescription>Sintomas e exames para análise da IA</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="symptoms">Sintomas Detalhados *</Label>
                 <Textarea
                   id="symptoms"
-                  placeholder="Descreva as queixas atuais para análise da IA..."
+                  placeholder="Liste os sintomas atuais do paciente para a análise de IA: dor, febre, dispneia, tontura, etc..."
                   value={formData.symptoms}
                   onChange={(e) => setFormData({...formData, symptoms: e.target.value})}
-                  rows={6}
+                  rows={5}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="exams">Exames Atuais (opcional)</Label>
+                <Label htmlFor="exams">Exames Realizados (opcional)</Label>
                 <Textarea
                   id="exams"
-                  placeholder="Resultados de exames realizados hoje..."
+                  placeholder="Resultados de exames laboratoriais, de imagem ou outros realizados anteriormente ou nesta consulta..."
                   value={formData.exams}
                   onChange={(e) => setFormData({...formData, exams: e.target.value})}
                   rows={4}
@@ -200,7 +294,7 @@ const AddCase = () => {
             </CardContent>
           </Card>
 
-          <div className="flex gap-4 justify-end">
+          <div className="flex gap-4 justify-end pb-8">
             <Button 
               type="button" 
               variant="outline" 
@@ -210,7 +304,7 @@ const AddCase = () => {
             </Button>
             <Button type="submit" size="lg" className="gap-2 font-semibold" disabled={loading}>
               <Send className="w-4 h-4" />
-              {loading ? "Processando..." : "Analisar e Cadastrar"}
+              {loading ? "Analisando com IA..." : "Analisar e Cadastrar"}
             </Button>
           </div>
         </form>

@@ -39,7 +39,6 @@ def calcular_idade(data_nascimento_str):
     try:
         data_nasc = datetime.strptime(data_nascimento_str, "%Y-%m-%d")
         hoje = datetime.now()
-        # Cálculo considerando se já fez aniversário no ano corrente
         return hoje.year - data_nasc.year - ((hoje.month, hoje.day) < (data_nasc.month, data_nasc.day))
     except Exception as e:
         print(f"Erro ao calcular idade: {e}")
@@ -83,7 +82,7 @@ def list_patients(owner_id: int, db: Session = Depends(get_db)):
     """Lista todos os pacientes cadastrados pelo médico"""
     return db.query(models.Patient).filter(models.Patient.owner_id == owner_id).all()
 
-# --- ROTAS DE CASOS CLÍNICOS (COM SEPARAÇÃO DE PACIENTE) ---
+# --- ROTAS DE CASOS CLÍNICOS ---
 
 @app.post("/cases/", response_model=schemas.CaseResponse)
 def create_case(case_data: schemas.CaseCreate, owner_id: int, db: Session = Depends(get_db)):
@@ -93,22 +92,30 @@ def create_case(case_data: schemas.CaseCreate, owner_id: int, db: Session = Depe
     # 1. IDENTIFICAR OU CRIAR O PACIENTE
     patient = None
     
-    # Prioridade 1: Buscar por ID se fornecido (fluxo de retorno)
     if case_data.patient_id:
         patient = db.query(models.Patient).filter(models.Patient.id == case_data.patient_id).first()
     
-    # Prioridade 2: Buscar por Nome + Data de Nascimento se dados do paciente forem enviados
     if not patient and case_data.patient_data:
-        patient = db.query(models.Patient).filter(
-            models.Patient.full_name == case_data.patient_data.full_name,
-            models.Patient.birth_date == case_data.patient_data.birth_date
-        ).first()
+        # Busca por CPF primeiro (se fornecido) para evitar duplicatas
+        if case_data.patient_data.cpf:
+            patient = db.query(models.Patient).filter(
+                models.Patient.cpf == case_data.patient_data.cpf
+            ).first()
         
+        # Fallback: busca por Nome + Data de Nascimento
+        if not patient:
+            patient = db.query(models.Patient).filter(
+                models.Patient.full_name == case_data.patient_data.full_name,
+                models.Patient.birth_date == case_data.patient_data.birth_date
+            ).first()
+            
         if not patient:
             patient = models.Patient(
                 full_name=case_data.patient_data.full_name,
                 birth_date=case_data.patient_data.birth_date,
                 gender=case_data.patient_data.gender,
+                cpf=case_data.patient_data.cpf,
+                mother_name=case_data.patient_data.mother_name,
                 medical_history=case_data.patient_data.medical_history,
                 owner_id=owner_id
             )
@@ -122,18 +129,38 @@ def create_case(case_data: schemas.CaseCreate, owner_id: int, db: Session = Depe
     # 2. CONSULTAR O GEMINI
     idade = calcular_idade(patient.birth_date)
 
-    prompt = f"""
-    Atue como um médico especialista sênior. Realize a triagem:
-    Paciente: {patient.full_name}, {idade} anos, Sexo: {patient.gender}.
-    Histórico Base (Condições Preexistentes): {patient.medical_history}
-    Sintomas Atuais da Consulta: {case_data.symptoms}
-    Exames Informados: {case_data.exams}
+    # Monta contexto clínico completo incluindo anamnese e HPMA
+    contexto_anamnese = ""
+    if case_data.anamnesis:
+        contexto_anamnese += f"\nAnamnese Médica: {case_data.anamnesis}"
+    if case_data.hpma:
+        contexto_anamnese += f"\nHPMA (História da Presente Moléstia Atual): {case_data.hpma}"
 
-    Retorne ESTRITAMENTE um JSON com as chaves: referral, urgency (Alta/Média/Baixa), justification, diagnoses (lista com name e probability), exams, medications.
+    prompt = f"""
+    Atue como um médico especialista sênior. Realize a triagem clínica completa:
+    
+    DADOS DO PACIENTE:
+    - Nome: {patient.full_name}
+    - Idade: {idade} anos
+    - Sexo: {patient.gender}
+    - Histórico Base (Condições Preexistentes): {patient.medical_history or "Não informado"}
+    {contexto_anamnese}
+    
+    QUEIXA PRINCIPAL / SINTOMAS ATUAIS: {case_data.symptoms}
+    EXAMES INFORMADOS: {case_data.exams or "Nenhum"}
+
+    Retorne ESTRITAMENTE um JSON com as seguintes chaves:
+    - referral: string com o encaminhamento sugerido. DEVE ser um dos valores: "Urgência", "Clínica Geral", "Pediatra", "Cardiologia", "Ortopedia", "Neurologia", "Ginecologia", "Psiquiatria", "Dermatologia", "Oftalmologia", "Otorrinolaringologia", "Urologia", "Gastroenterologia", "Pneumologia", "Endocrinologia", "Oncologia", "Reumatologia", "Infectologia", "Nefrologia", "Hematologia", "Outro"
+    - urgency: string "Alta", "Média" ou "Baixa"
+    - justification: string com a justificativa clínica detalhada
+    - pathology_type: string com o tipo de patologia (ex: "Infecciosa", "Cardiovascular", "Neurológica", "Ortopédica", "Gastrointestinal", "Respiratória", "Dermatológica", "Endocrinológica", "Psiquiátrica", "Oncológica", "Autoimune", "Metabólica", "Congênita", "Traumática", "Outra")
+    - cid10: objeto com "code" (código CID-10, ex: "J06.9") e "description" (descrição, ex: "Infecção aguda das vias aéreas superiores")
+    - diagnoses: lista de objetos com "name" (nome do diagnóstico) e "probability" (probabilidade como porcentagem, ex: "75%")
+    - exams: lista de strings com exames sugeridos
+    - medications: lista de strings com medicações sugeridas (nome genérico + dosagem sugerida)
     """
 
     try:
-        # Nova chamada de API forçando JSON nativo
         response = client.models.generate_content(
             model='gemini-2.0-flash',
             contents=prompt,
@@ -142,28 +169,33 @@ def create_case(case_data: schemas.CaseCreate, owner_id: int, db: Session = Depe
             )
         )
         
-        # O texto já vem em formato JSON válido, então usamos loads direto
         ai_result = json.loads(response.text)
         
-        # Proteção extra contra chaves faltantes no JSON gerado
+        # Proteção contra chaves faltantes
         if "diagnoses" not in ai_result: ai_result["diagnoses"] = []
         if "exams" not in ai_result: ai_result["exams"] = []
         if "medications" not in ai_result: ai_result["medications"] = []
+        if "pathology_type" not in ai_result: ai_result["pathology_type"] = "Não classificado"
+        if "cid10" not in ai_result: ai_result["cid10"] = {"code": "Z99", "description": "Não classificado"}
 
     except Exception as e:
         print(f"Erro Gemini: {e}")
         ai_result = {
-            "referral": "Clínico Geral", 
+            "referral": "Clínica Geral", 
             "urgency": "Indefinida", 
             "justification": "Erro no processamento da IA. Avaliação manual necessária.", 
+            "pathology_type": "Não classificado",
+            "cid10": {"code": "Z99", "description": "Sem classificação disponível"},
             "diagnoses": [],
             "exams": [],
             "medications": []
         }
 
-    # 3. SALVAR O CASO VINCULADO AO PACIENTE
+    # 3. SALVAR O CASO
     new_case = models.Case(
         patient_id=patient.id,
+        anamnesis=case_data.anamnesis,
+        hpma=case_data.hpma,
         symptoms=case_data.symptoms,
         exams_input=case_data.exams,
         owner_id=owner_id,
@@ -175,7 +207,6 @@ def create_case(case_data: schemas.CaseCreate, owner_id: int, db: Session = Depe
     db.commit()
     db.refresh(new_case)
     
-    # Preenche o nome para a resposta do schemas.CaseResponse exigida pelo Frontend
     new_case.patient_name = patient.full_name
     return new_case
 
@@ -189,7 +220,7 @@ def read_cases(owner_id: int, db: Session = Depends(get_db)):
     
     cases_list = []
     for case, name in results:
-        case.patient_name = name # Mapeia o nome do paciente para o schema de resposta
+        case.patient_name = name
         cases_list.append(case)
     return cases_list
 
@@ -205,11 +236,15 @@ def read_case_detail(case_id: int, db: Session = Depends(get_db)):
         case.patient_name = patient.full_name
         case.birth_date = patient.birth_date
         case.gender = patient.gender
+        case.cpf = patient.cpf
+        case.mother_name = patient.mother_name
         case.medical_history = patient.medical_history
     else:
         case.patient_name = "Desconhecido"
         case.birth_date = None
         case.gender = "N/A"
+        case.cpf = None
+        case.mother_name = None
         case.medical_history = "N/A"
 
     return case
