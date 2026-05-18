@@ -34,8 +34,8 @@ class PatientBase(BaseModel):
     full_name: str
     birth_date: str
     gender: str
-    cpf: Optional[str] = None              # NOVO: CPF
-    mother_name: Optional[str] = None      # NOVO: Nome da mãe
+    cpf: Optional[str] = None
+    mother_name: Optional[str] = None
     medical_history: Optional[str] = ""
 
 class PatientResponse(PatientBase):
@@ -48,10 +48,43 @@ class PatientResponse(PatientBase):
 class CaseCreate(BaseModel):
     patient_id: Optional[int] = None
     patient_data: Optional[PatientBase] = None
-    anamnesis: Optional[str] = ""          # NOVO: Anamnese geral
-    hpma: Optional[str] = ""              # NOVO: HPMA
+
+    care_type: Optional[str] = "Clínica Geral"
+
+    anamnesis: Optional[str] = None
+    hpma: Optional[str] = None
+
+    antecedentes_pessoais: Optional[str] = None
+    antecedentes_familiares: Optional[str] = None
+    antecedentes_cirurgicos: Optional[str] = None
+    historia_gineco_obstetrica: Optional[str] = None
+    habitos_vida: Optional[str] = None
+    medicamentos_uso: Optional[str] = None
+    alergias: Optional[str] = None
+    revisao_sistemas: Optional[str] = None
+
+    pediatric_responsible: Optional[str] = None
+    pediatric_vaccines: Optional[str] = None
+    pediatric_breastfed: Optional[str] = None
+    pediatric_dnpm: Optional[str] = None
+
     symptoms: str
-    exams: Optional[str] = ""
+    exams: Optional[str] = None
+
+class CaseUpdate(BaseModel):
+    symptoms: Optional[str] = None
+    exams: Optional[str] = None
+    anamnesis: Optional[str] = None
+    hpma: Optional[str] = None
+    antecedentes_pessoais: Optional[str] = None
+    antecedentes_familiares: Optional[str] = None
+    antecedentes_cirurgicos: Optional[str] = None
+    historia_gineco_obstetrica: Optional[str] = None
+    habitos_vida: Optional[str] = None
+    medicamentos_uso: Optional[str] = None
+    alergias: Optional[str] = None
+    revisao_sistemas: Optional[str] = None
+    doctor_conclusion: Optional[str] = None
 
 class CaseResponse(BaseModel):
     id: int
@@ -59,7 +92,8 @@ class CaseResponse(BaseModel):
     status: str
     created_at: Any
     ai_analysis_json: Optional[Any] = None
-    patient_name: Optional[str] = None 
+    patient_name: Optional[str] = None
+    care_type: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -72,8 +106,25 @@ class CaseDetailResponse(CaseResponse):
     medical_history: Optional[str] = None
     anamnesis: Optional[str] = None
     hpma: Optional[str] = None
+    extended_anamnesis_json: Optional[Any] = None
     symptoms: str
     exams_input: Optional[str] = None
-    
+    doctor_conclusion: Optional[str] = None
+
     class Config:
         from_attributes = True
+
+# --- DASHBOARD SCHEMAS ---
+class NameValueItem(BaseModel):
+    name: str
+    value: int
+
+class DateTotalItem(BaseModel):
+    date: str
+    total: int
+
+class DashboardStats(BaseModel):
+    urgency: List[NameValueItem]
+    care_type: List[NameValueItem]
+    pathology: List[NameValueItem]
+    cases_by_date: List[DateTotalItem]

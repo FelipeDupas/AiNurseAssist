@@ -1,45 +1,24 @@
-"""
-Migração do banco PostgreSQL para adicionar novos campos:
-- patients: cpf, mother_name
-- cases: anamnesis, hpma
-"""
-import psycopg2
+import sqlite3
+import os
 
-# Mesma connection string do database.py
-DB_URL = "postgresql://postgres:Projeto10*@localhost/ainurse_db"
+DB_PATH = os.path.join(os.path.dirname(__file__), "ainurse_dev.db")
 
-# Extrai as partes da URL
-import re
-match = re.match(r"postgresql://(\w+):([^@]+)@([^/]+)/(.+)", DB_URL)
-user, password, host, dbname = match.groups()
-
-try:
-    conn = psycopg2.connect(
-        dbname=dbname,
-        user=user,
-        password=password,
-        host=host
-    )
-    conn.autocommit = True
+def run_migrations():
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    migrations = [
-        ("ALTER TABLE patients ADD COLUMN IF NOT EXISTS cpf VARCHAR", "patients.cpf"),
-        ("ALTER TABLE patients ADD COLUMN IF NOT EXISTS mother_name VARCHAR", "patients.mother_name"),
-        ("ALTER TABLE cases ADD COLUMN IF NOT EXISTS anamnesis TEXT", "cases.anamnesis"),
-        ("ALTER TABLE cases ADD COLUMN IF NOT EXISTS hpma TEXT", "cases.hpma"),
-    ]
+    try:
+        cursor.execute("ALTER TABLE cases ADD COLUMN doctor_conclusion TEXT")
+        print("Coluna 'doctor_conclusion' adicionada com sucesso.")
+    except sqlite3.OperationalError as e:
+        if "duplicate column name" in str(e).lower():
+            print("Coluna 'doctor_conclusion' já existe. Nenhuma alteração necessária.")
+        else:
+            raise e
 
-    for sql, field_name in migrations:
-        try:
-            cursor.execute(sql)
-            print(f"✅ '{field_name}' OK")
-        except Exception as e:
-            print(f"❌ Erro em '{field_name}': {e}")
-
-    cursor.close()
+    conn.commit()
     conn.close()
-    print("\n✅ Migração PostgreSQL concluída!")
+    print("Migração concluída.")
 
-except Exception as e:
-    print(f"❌ Erro de conexão: {e}")
+if __name__ == "__main__":
+    run_migrations()

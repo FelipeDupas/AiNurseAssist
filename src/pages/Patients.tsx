@@ -7,16 +7,22 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Search, Download, Eye, Stethoscope } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-// Interface para tipar os dados do Backend
 interface Case {
   id: number;
   patient_name: string;
   created_at: string;
   status: string;
+  care_type?: string;
   ai_analysis_json?: {
     urgency?: string;
   };
 }
+
+const careTypeBadgeVariant = (careType?: string): "destructive" | "secondary" | "default" | "outline" => {
+  if (careType === "Urgência") return "destructive";
+  if (careType === "Pediátrico") return "secondary";
+  return "outline";
+};
 
 const Patients = () => {
   const navigate = useNavigate();
@@ -26,11 +32,9 @@ const Patients = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
 
-  // Pega o usuário logado
   const medicoString = localStorage.getItem("medico");
   const medico = medicoString ? JSON.parse(medicoString) : null;
 
-  // Busca os dados reais ao abrir a tela
   useEffect(() => {
     if (!medico?.id) {
       navigate("/login");
@@ -42,8 +46,7 @@ const Patients = () => {
         const response = await fetch(`http://127.0.0.1:8000/cases/?owner_id=${medico.id}`);
         if (response.ok) {
           const data = await response.json();
-          // Ordena por ID decrescente (mais recentes primeiro)
-          setCases(data.sort((a: any, b: any) => b.id - a.id));
+          setCases(data.sort((a: Case, b: Case) => b.id - a.id));
         }
       } catch (error) {
         console.error("Erro ao buscar pacientes:", error);
@@ -55,20 +58,17 @@ const Patients = () => {
     fetchCases();
   }, [medico?.id, navigate]);
 
-  // Lógica de filtragem
   const filteredPatients = cases.filter(patient => {
     const matchesSearch = patient.patient_name.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // Filtro de Status
-    const matchesStatus = statusFilter === "all" || 
+
+    const matchesStatus = statusFilter === "all" ||
       (statusFilter === "analisado" && patient.status === "Analisado") ||
       (statusFilter === "pendente" && patient.status === "Pendente");
 
-    // Filtro de Data (Simplificado)
     let matchesDate = true;
-    const caseDate = new Date(patient.created_at); // Assume formato YYYY-MM-DD
+    const caseDate = new Date(patient.created_at);
     const today = new Date();
-    
+
     if (dateFilter === "today") {
       matchesDate = caseDate.toDateString() === today.toDateString();
     } else if (dateFilter === "week") {
@@ -88,8 +88,8 @@ const Patients = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             onClick={() => navigate("/dashboard")}
             className="gap-2"
           >
@@ -115,7 +115,6 @@ const Patients = () => {
           </p>
         </div>
 
-        {/* Filtros */}
         <Card className="shadow-[var(--shadow-elevated)] mb-6">
           <CardHeader>
             <CardTitle>Filtros</CardTitle>
@@ -159,7 +158,6 @@ const Patients = () => {
           </CardContent>
         </Card>
 
-        {/* Tabela de Resultados */}
         <Card className="shadow-[var(--shadow-card)]">
           <CardHeader>
             <CardTitle>Lista de Pacientes</CardTitle>
@@ -174,6 +172,7 @@ const Patients = () => {
                   <tr className="border-b text-left">
                     <th className="pb-3 font-semibold">Paciente</th>
                     <th className="pb-3 font-semibold">Data</th>
+                    <th className="pb-3 font-semibold">Tipo</th>
                     <th className="pb-3 font-semibold">Status do Caso</th>
                     <th className="pb-3 font-semibold">Urgência</th>
                     <th className="pb-3 font-semibold text-right">Ações</th>
@@ -181,19 +180,23 @@ const Patients = () => {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={5} className="text-center py-4">Carregando...</td></tr>
+                    <tr><td colSpan={6} className="text-center py-4">Carregando...</td></tr>
                   ) : filteredPatients.length === 0 ? (
-                    <tr><td colSpan={5} className="text-center py-4 text-muted-foreground">Nenhum paciente encontrado.</td></tr>
+                    <tr><td colSpan={6} className="text-center py-4 text-muted-foreground">Nenhum paciente encontrado.</td></tr>
                   ) : (
                     filteredPatients.map((patient) => {
-                      // Extrai a urgência do JSON da IA (se existir)
                       const urgency = patient.ai_analysis_json?.urgency || "Indefinida";
-                      
+
                       return (
                         <tr key={patient.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
                           <td className="py-4 font-medium">{patient.patient_name}</td>
-                          <td className="py-4 text-muted-foreground">
-                            {patient.created_at} 
+                          <td className="py-4 text-muted-foreground text-sm">
+                            {new Date(patient.created_at).toLocaleDateString('pt-BR')}
+                          </td>
+                          <td className="py-4">
+                            <Badge variant={careTypeBadgeVariant(patient.care_type)}>
+                              {patient.care_type ?? "—"}
+                            </Badge>
                           </td>
                           <td className="py-4">
                             <Badge variant={patient.status === "Analisado" ? "default" : "secondary"}>
@@ -218,11 +221,10 @@ const Patients = () => {
                                 <Eye className="w-4 h-4 mr-1" />
                                 Ver
                               </Button>
-                              {/* Botão Exportar (Placeholder - teria que implementar a lógica igual do CaseView) */}
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => navigate(`/case/${patient.id}`)} // Manda pro view pra exportar de lá
+                                onClick={() => navigate(`/case/${patient.id}`)}
                               >
                                 <Download className="w-4 h-4 mr-1" />
                                 Abrir

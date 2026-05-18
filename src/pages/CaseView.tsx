@@ -5,11 +5,12 @@ import html2pdf from "html2pdf.js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, AlertCircle, CheckCircle, Activity, Stethoscope, ClipboardList } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft, Download, AlertCircle, CheckCircle, Activity, Stethoscope, ClipboardList, Baby, AlertTriangle, PenLine } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Pencil } from "lucide-react";
+import { toast } from "sonner";
 
-// Mapa de cores por especialidade de encaminhamento
 const referralColors: Record<string, string> = {
   "Urgência": "bg-red-100 border-l-red-600 text-red-900",
   "Clínica Geral": "bg-blue-50 border-l-blue-500 text-blue-900",
@@ -23,6 +24,33 @@ const referralColors: Record<string, string> = {
   "Oncologia": "bg-gray-100 border-l-gray-600 text-gray-900",
 };
 
+const urgencyColors: Record<string, string> = {
+  "Alta": "bg-red-100 text-red-800 border-red-300",
+  "Média": "bg-yellow-100 text-yellow-800 border-yellow-300",
+  "Baixa": "bg-green-100 text-green-800 border-green-300",
+};
+
+const careTypeConfig: Record<string, { label: string; color: string; icon: JSX.Element }> = {
+  "Urgência": { label: "Urgência", color: "bg-red-100 text-red-700 border-red-300", icon: <AlertTriangle className="w-3 h-3" /> },
+  "Pediátrico": { label: "Pediátrico", color: "bg-purple-100 text-purple-700 border-purple-300", icon: <Baby className="w-3 h-3" /> },
+  "Clínica Geral": { label: "Clínica Geral", color: "bg-blue-100 text-blue-700 border-blue-300", icon: <Stethoscope className="w-3 h-3" /> },
+};
+
+interface ExtendedAnamnesis {
+  antecedentes_pessoais?: string;
+  antecedentes_familiares?: string;
+  antecedentes_cirurgicos?: string;
+  historia_gineco_obstetrica?: string;
+  habitos_vida?: string;
+  medicamentos_uso?: string;
+  alergias?: string;
+  revisao_sistemas?: string;
+  pediatric_responsible?: string;
+  pediatric_vaccines?: string;
+  pediatric_breastfed?: string;
+  pediatric_dnpm?: string;
+}
+
 interface CaseData {
   id: number;
   patient_name: string;
@@ -30,29 +58,37 @@ interface CaseData {
   gender: string;
   cpf?: string;
   mother_name?: string;
-  medical_history: string;
+  medical_history?: string;
+  care_type?: string;
   anamnesis?: string;
   hpma?: string;
+  extended_anamnesis_json?: ExtendedAnamnesis;
   symptoms: string;
-  exams_input: string;
+  exams_input?: string;
   created_at: string;
+  doctor_conclusion?: string;
   ai_analysis_json: {
     referral: string;
     urgency: string;
     justification: string;
     pathology_type?: string;
     cid10?: { code: string; description: string };
-    diagnoses: Array<{ name: string; probability: string }>;
-    exams: string[];
-    medications: string[];
+    cid10_secondary?: Array<{ code: string; description: string }>;
+    diagnoses?: Array<{ name: string; probability: string }>;
+    exams?: string[];
+    medications?: string[];
   };
 }
+
+const hasValue = (v: string | null | undefined) => v != null && v.trim() !== "";
 
 const CaseView = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [caseData, setCaseData] = useState<CaseData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [conclusionText, setConclusionText] = useState("");
+  const [savingConclusion, setSavingConclusion] = useState(false);
 
   useEffect(() => {
     const fetchCaseDetail = async () => {
@@ -61,6 +97,7 @@ const CaseView = () => {
         if (response.ok) {
           const data = await response.json();
           setCaseData(data);
+          setConclusionText(data.doctor_conclusion || "");
         } else {
           alert("Caso não encontrado");
           navigate("/dashboard");
@@ -71,7 +108,6 @@ const CaseView = () => {
         setLoading(false);
       }
     };
-
     if (id) fetchCaseDetail();
   }, [id, navigate]);
 
@@ -79,12 +115,33 @@ const CaseView = () => {
     const element = document.getElementById("report-content");
     const opt = {
       margin: [10, 10, 10, 10],
-      filename: `Relatorio_Medico_${caseData?.patient_name.replace(/\s+/g, '_')}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
+      filename: `Relatorio_Medico_${caseData?.patient_name.replace(/\s+/g, "_")}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
     };
     html2pdf().set(opt).from(element).save();
+  };
+
+  const handleSaveConclusion = async () => {
+    setSavingConclusion(true);
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/cases/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ doctor_conclusion: conclusionText }),
+      });
+      if (response.ok) {
+        toast.success("Conclusão salva com sucesso!");
+        setCaseData((prev) => prev ? { ...prev, doctor_conclusion: conclusionText } : prev);
+      } else {
+        toast.error("Erro ao salvar conclusão.");
+      }
+    } catch {
+      toast.error("Erro de conexão ao salvar conclusão.");
+    } finally {
+      setSavingConclusion(false);
+    }
   };
 
   if (loading) {
@@ -101,6 +158,7 @@ const CaseView = () => {
   if (!caseData) return null;
 
   const ai = caseData.ai_analysis_json;
+  const ext = caseData.extended_anamnesis_json;
 
   const calcularIdade = (dataNasc: string) => {
     if (!dataNasc) return "N/A";
@@ -112,21 +170,43 @@ const CaseView = () => {
     return idade;
   };
 
-  const referralClass = referralColors[ai?.referral] || "bg-blue-50 border-l-blue-500 text-blue-900";
+  const referralClass = referralColors[ai?.referral] ?? "bg-blue-50 border-l-blue-500 text-blue-900";
+  const urgencyClass = urgencyColors[ai?.urgency] ?? "bg-gray-100 text-gray-700 border-gray-300";
+  const careConfig = careTypeConfig[caseData.care_type ?? "Clínica Geral"] ?? careTypeConfig["Clínica Geral"];
+
+  const extSections = ext ? [
+    { label: "Antecedentes Pessoais", value: ext.antecedentes_pessoais },
+    { label: "Antecedentes Familiares", value: ext.antecedentes_familiares },
+    { label: "Antecedentes Cirúrgicos", value: ext.antecedentes_cirurgicos },
+    { label: "História Gineco-Obstétrica", value: ext.historia_gineco_obstetrica },
+    { label: "Hábitos de Vida", value: ext.habitos_vida },
+    { label: "Medicamentos em Uso", value: ext.medicamentos_uso },
+    { label: "Alergias", value: ext.alergias },
+    { label: "Revisão por Sistemas", value: ext.revisao_sistemas },
+  ].filter(s => hasValue(s.value)) : [];
+
+  const pediatricSections = ext ? [
+    { label: "Responsável Legal", value: ext.pediatric_responsible },
+    { label: "Situação Vacinal", value: ext.pediatric_vaccines },
+    { label: "Aleitamento Materno", value: ext.pediatric_breastfed },
+    { label: "DNPM", value: ext.pediatric_dnpm },
+  ].filter(s => hasValue(s.value)) : [];
+
+  const hasAnamnesis = hasValue(caseData.anamnesis) || hasValue(caseData.hpma) || extSections.length > 0;
+  const hasPediatric = pediatricSections.length > 0;
+  const hasDiagnoses = ai?.diagnoses && ai.diagnoses.length > 0;
+  const hasExams = ai?.exams && ai.exams.length > 0;
+  const hasMedications = ai?.medications && ai.medications.length > 0;
+  const hasSecondaryCid = ai?.cid10_secondary && ai.cid10_secondary.length > 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10 print:hidden">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate("/dashboard")}
-            className="gap-2"
-          >
+          <Button variant="ghost" onClick={() => navigate("/dashboard")} className="gap-2">
             <ArrowLeft className="w-4 h-4" />
             Voltar ao Dashboard
           </Button>
-          
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
               <Stethoscope className="w-4 h-4 text-primary-foreground" />
@@ -135,10 +215,9 @@ const CaseView = () => {
               AI Nurse Assist
             </h1>
           </div>
-
           <div className="flex items-center gap-3">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="gap-2 border-primary text-primary hover:bg-primary/5"
               onClick={() => navigate(`/edit-case/${id}`)}
             >
@@ -155,22 +234,31 @@ const CaseView = () => {
 
       <main className="container mx-auto px-6 py-8" id="report-content">
         <div className="mb-8 print:mb-4">
-          <div className="flex justify-between items-start">
+          <div className="flex justify-between items-start flex-wrap gap-4">
             <div>
               <h1 className="text-3xl font-bold mb-2">Relatório de Teletriagem</h1>
               <p className="text-muted-foreground">
                 Caso #{caseData.id} • Gerado em {caseData.created_at}
               </p>
             </div>
+            <Badge className={`flex items-center gap-1 border text-sm px-3 py-1 ${careConfig.color}`}>
+              {careConfig.icon}
+              {careConfig.label}
+            </Badge>
           </div>
+
+          {hasValue(caseData.doctor_conclusion) && (
+            <div className="mt-4 p-4 border border-green-300 bg-green-50 rounded-lg">
+              <h3 className="font-semibold text-green-800 mb-1 text-sm uppercase tracking-wide">Conclusão do Médico</h3>
+              <p className="text-sm text-green-900">{caseData.doctor_conclusion}</p>
+            </div>
+          )}
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6 print:block print:space-y-6">
-          
-          {/* Coluna Esquerda */}
+
           <div className="space-y-6">
 
-            {/* Dados do Paciente */}
             <Card className="shadow-[var(--shadow-card)] print:shadow-none print:border">
               <CardHeader>
                 <CardTitle>Dados do Paciente</CardTitle>
@@ -205,21 +293,23 @@ const CaseView = () => {
                   </>
                 )}
 
+                {hasValue(caseData.medical_history) && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h3 className="font-semibold text-sm text-muted-foreground mb-2">Histórico Médico Base</h3>
+                      <p className="text-sm">{caseData.medical_history}</p>
+                    </div>
+                  </>
+                )}
+
                 <Separator />
-
-                <div>
-                  <h3 className="font-semibold text-sm text-muted-foreground mb-2">Histórico Médico Base</h3>
-                  <p className="text-sm">{caseData.medical_history || "Não informado"}</p>
-                </div>
-
-                <Separator />
-
                 <div>
                   <h3 className="font-semibold text-sm text-muted-foreground mb-2">Sintomas</h3>
                   <p className="text-sm leading-relaxed">{caseData.symptoms}</p>
                 </div>
 
-                {caseData.exams_input && (
+                {hasValue(caseData.exams_input) && (
                   <>
                     <Separator />
                     <div>
@@ -231,8 +321,27 @@ const CaseView = () => {
               </CardContent>
             </Card>
 
-            {/* Anamnese */}
-            {(caseData.anamnesis || caseData.hpma) && (
+            {hasPediatric && (
+              <Card className="shadow-[var(--shadow-card)] border-l-4 border-l-purple-400 print:shadow-none print:border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Baby className="w-5 h-5 text-purple-500" />
+                    Dados Pediátricos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {pediatricSections.map((s, i) => (
+                    <div key={i}>
+                      {i > 0 && <Separator className="mb-3" />}
+                      <h3 className="font-semibold text-xs text-muted-foreground mb-1 uppercase tracking-wide">{s.label}</h3>
+                      <p className="text-sm">{s.value}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {hasAnamnesis && (
               <Card className="shadow-[var(--shadow-card)] border-l-4 border-l-blue-400 print:shadow-none print:border">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -241,110 +350,164 @@ const CaseView = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {caseData.anamnesis && (
+                  {hasValue(caseData.anamnesis) && (
                     <div>
                       <h3 className="font-semibold text-sm text-muted-foreground mb-2">Anamnese Geral</h3>
                       <p className="text-sm leading-relaxed bg-muted/30 p-3 rounded-lg">{caseData.anamnesis}</p>
                     </div>
                   )}
-                  {caseData.hpma && (
+
+                  {hasValue(caseData.hpma) && (
                     <>
-                      {caseData.anamnesis && <Separator />}
+                      {hasValue(caseData.anamnesis) && <Separator />}
                       <div>
-                        <h3 className="font-semibold text-sm text-muted-foreground mb-2">HPMA</h3>
+                        <h3 className="font-semibold text-sm text-muted-foreground mb-2">HPMA — História da Presente Moléstia Atual</h3>
                         <p className="text-sm leading-relaxed bg-muted/30 p-3 rounded-lg">{caseData.hpma}</p>
                       </div>
                     </>
                   )}
+
+                  {extSections.map((s, i) => (
+                    <div key={i}>
+                      <Separator />
+                      <div className="pt-2">
+                        <h3 className="font-semibold text-sm text-muted-foreground mb-2">{s.label}</h3>
+                        <p className="text-sm leading-relaxed bg-muted/30 p-3 rounded-lg">{s.value}</p>
+                      </div>
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
             )}
+
+            <Card className="shadow-[var(--shadow-card)] border-l-4 border-l-green-400 print:hidden">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PenLine className="w-5 h-5 text-green-600" />
+                  Conclusão do Médico
+                </CardTitle>
+                <CardDescription>Registre sua conclusão clínica sobre este caso</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Textarea
+                  placeholder="Digite sua conclusão clínica, observações finais ou conduta definida..."
+                  value={conclusionText}
+                  onChange={(e) => setConclusionText(e.target.value)}
+                  rows={4}
+                />
+                <Button
+                  onClick={handleSaveConclusion}
+                  disabled={savingConclusion}
+                  className="gap-2"
+                  variant="outline"
+                >
+                  <PenLine className="w-4 h-4" />
+                  {savingConclusion ? "Salvando..." : "Salvar Conclusão"}
+                </Button>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Coluna Direita: Análise da IA */}
           <div className="space-y-6">
             {ai ? (
-              <>
-                {/* Encaminhamento + Urgência + CID-10 + Patologia */}
-                <Card className="shadow-[var(--shadow-elevated)] border-l-4 border-l-primary print:shadow-none print:border">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Activity className="w-5 h-5 text-primary" />
-                      Análise Inteligente
-                    </CardTitle>
-                    <CardDescription>Suporte à Decisão Clínica — AI Nurse Assist</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
+              <Card className="shadow-[var(--shadow-elevated)] border-l-4 border-l-primary print:shadow-none print:border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-primary" />
+                    Análise Inteligente
+                  </CardTitle>
+                  <CardDescription>Suporte à Decisão Clínica — AI Nurse Assist</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
 
-                    {/* Encaminhamento e Urgência */}
-                    <div className={`p-4 rounded-lg border-l-4 ${referralClass}`}>
-                      <div className="flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
-                          <h3 className="font-semibold mb-1">Encaminhamento Sugerido</h3>
-                          <p className="text-xl font-bold mb-2">{ai.referral}</p>
-                          <div className="flex flex-wrap gap-2">
+                  <div className={`p-4 rounded-lg border-l-4 ${referralClass}`}>
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <h3 className="font-semibold mb-1">Encaminhamento Sugerido</h3>
+                        <p className="text-xl font-bold mb-3">{ai.referral}</p>
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="outline" className={`bg-white/80 border font-medium ${urgencyClass}`}>
+                            Urgência: {ai.urgency}
+                          </Badge>
+                          {hasValue(ai.pathology_type) && (
                             <Badge variant="outline" className="bg-white/80">
-                              Urgência: {ai.urgency}
+                              {ai.pathology_type}
                             </Badge>
-                            {ai.pathology_type && (
-                              <Badge variant="outline" className="bg-white/80">
-                                {ai.pathology_type}
-                              </Badge>
-                            )}
-                          </div>
+                          )}
                         </div>
                       </div>
                     </div>
+                  </div>
 
-                    {/* CID-10 */}
-                    {ai.cid10 && (
+                  {ai.cid10 && (
+                    <div>
+                      <h3 className="font-semibold mb-2 text-sm text-muted-foreground uppercase tracking-wide">Classificação CID-10</h3>
                       <div className="flex items-center gap-4 p-3 bg-muted/40 rounded-lg border">
                         <div className="text-center min-w-[64px]">
-                          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">CID-10</p>
+                          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Principal</p>
                           <span className="text-lg font-mono font-bold text-primary">{ai.cid10.code}</span>
                         </div>
                         <Separator orientation="vertical" className="h-10" />
                         <p className="text-sm">{ai.cid10.description}</p>
                       </div>
-                    )}
 
-                    {/* Justificativa */}
-                    <div>
-                      <h3 className="font-semibold mb-2 flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-primary" />
-                        Justificativa Clínica
-                      </h3>
-                      <p className="text-sm leading-relaxed bg-muted/50 p-4 rounded-lg print:bg-gray-50">
-                        {ai.justification}
-                      </p>
+                      {hasSecondaryCid && (
+                        <div className="mt-2 space-y-2">
+                          {ai.cid10_secondary!.map((cid, i) => (
+                            <div key={i} className="flex items-center gap-4 p-3 bg-muted/20 rounded-lg border border-dashed">
+                              <div className="text-center min-w-[64px]">
+                                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Secundário</p>
+                                <span className="text-sm font-mono font-semibold text-muted-foreground">{cid.code}</span>
+                              </div>
+                              <Separator orientation="vertical" className="h-8" />
+                              <p className="text-sm text-muted-foreground">{cid.description}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
+                  )}
 
-                    <Separator />
+                  <div>
+                    <h3 className="font-semibold mb-2 flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-primary" />
+                      Justificativa Clínica
+                    </h3>
+                    <p className="text-sm leading-relaxed bg-muted/50 p-4 rounded-lg print:bg-gray-50">
+                      {ai.justification}
+                    </p>
+                  </div>
 
-                    {/* Hipóteses Diagnósticas */}
-                    <div>
-                      <h3 className="font-semibold mb-3">Hipóteses Diagnósticas</h3>
-                      <div className="space-y-2">
-                        {ai.diagnoses?.map((diagnosis, index) => (
-                          <div key={index} className="flex justify-between items-center p-3 rounded-lg bg-muted/30 print:bg-gray-50 print:border">
-                            <span className="text-sm font-medium">{diagnosis.name}</span>
-                            <span className="text-xs font-bold px-2 py-1 rounded bg-white border shrink-0 ml-2">
-                              {diagnosis.probability}
-                            </span>
-                          </div>
-                        ))}
+                  {hasDiagnoses && (
+                    <>
+                      <Separator />
+                      <div>
+                        <h3 className="font-semibold mb-3">Hipóteses Diagnósticas</h3>
+                        <div className="space-y-2">
+                          {ai.diagnoses!.map((diagnosis, index) => (
+                            <div
+                              key={index}
+                              className="flex justify-between items-center p-3 rounded-lg bg-muted/30 print:bg-gray-50 print:border"
+                            >
+                              <span className="text-sm font-medium">{diagnosis.name}</span>
+                              <span className="text-xs font-bold px-2 py-1 rounded bg-white border shrink-0 ml-2">
+                                {diagnosis.probability}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    </>
+                  )}
 
-                    <Separator />
-
-                    {/* Conduta: Exames */}
-                    {ai.exams && ai.exams.length > 0 && (
+                  {hasExams && (
+                    <>
+                      <Separator />
                       <div>
                         <h3 className="font-semibold mb-3">Exames Sugeridos</h3>
                         <ul className="space-y-2">
-                          {ai.exams.map((exam, index) => (
+                          {ai.exams!.map((exam, index) => (
                             <li key={`ex-${index}`} className="flex items-start gap-2 text-sm">
                               <span className="font-bold text-primary mt-0.5">•</span>
                               <span>{exam}</span>
@@ -352,29 +515,28 @@ const CaseView = () => {
                           ))}
                         </ul>
                       </div>
-                    )}
+                    </>
+                  )}
 
-                    {/* Medicações */}
-                    {ai.medications && ai.medications.length > 0 && (
-                      <>
-                        <Separator />
-                        <div>
-                          <h3 className="font-semibold mb-3">Medicações Sugeridas</h3>
-                          <ul className="space-y-2">
-                            {ai.medications.map((med, index) => (
-                              <li key={`med-${index}`} className="flex items-start gap-2 text-sm">
-                                <span className="font-bold text-secondary mt-0.5">•</span>
-                                <span>{med}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </>
-                    )}
+                  {hasMedications && (
+                    <>
+                      <Separator />
+                      <div>
+                        <h3 className="font-semibold mb-3">Medicações Sugeridas</h3>
+                        <ul className="space-y-2">
+                          {ai.medications!.map((med, index) => (
+                            <li key={`med-${index}`} className="flex items-start gap-2 text-sm">
+                              <span className="font-bold text-secondary mt-0.5">•</span>
+                              <span>{med}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </>
+                  )}
 
-                  </CardContent>
-                </Card>
-              </>
+                </CardContent>
+              </Card>
             ) : (
               <div className="p-4 bg-red-100 text-red-700 rounded-lg">
                 Análise pendente ou erro na IA.
@@ -383,7 +545,6 @@ const CaseView = () => {
           </div>
         </div>
 
-        {/* Rodapé do PDF */}
         <div className="mt-8 text-center text-xs text-muted-foreground hidden print:block">
           Relatório gerado automaticamente por AI Nurse Assist • Uso exclusivo para suporte à decisão clínica.
         </div>

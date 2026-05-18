@@ -3,12 +3,13 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 # CONFIGURAÇÃO DO BANCO DE DADOS
-# Formato: postgresql://USUARIO:SENHA@LOCALHOST/NOME_DO_BANCO
-# IMPORTANTE: Troque 'postgres' e '123456' pelo seu usuário e senha reais do Postgres
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:Projeto10*@localhost/ainurse_db"
+# Para uso local/testes use SQLite (não requer instalação):
+SQLALCHEMY_DATABASE_URL = "sqlite:///./ainurse_dev.db"
+# Para produção com PostgreSQL, comente a linha acima e use:
+# SQLALCHEMY_DATABASE_URL = "postgresql://postgres:Projeto10*@localhost/ainurse_db"
 
 # Cria a conexão
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 
 # Cria a sessão (é o que vamos usar para mandar comandos pro banco)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -12,13 +12,43 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend,
+} from "recharts";
+
+interface DashboardStats {
+  urgency: Array<{ name: string; value: number }>;
+  care_type: Array<{ name: string; value: number }>;
+  pathology: Array<{ name: string; value: number }>;
+  cases_by_date: Array<{ date: string; total: number }>;
+}
+
+const URGENCY_COLORS: Record<string, string> = {
+  Alta: "#ef4444",
+  Média: "#f59e0b",
+  Baixa: "#22c55e",
+  Indefinida: "#94a3b8",
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [cases, setCases] = useState([]);
-  const [patientCount, setPatientCount] = useState(0); // Novo estado para contagem de pacientes
+  const [patientCount, setPatientCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
+
   const medicoString = localStorage.getItem("medico");
   const medico = medicoString ? JSON.parse(medicoString) : {};
 
@@ -30,18 +60,25 @@ const Dashboard = () => {
 
     const fetchData = async () => {
       try {
-        // Busca os Casos
-        const resCases = await fetch(`http://127.0.0.1:8000/cases/?owner_id=${medico.id}`);
+        const [resCases, resPatients, resStats] = await Promise.all([
+          fetch(`http://127.0.0.1:8000/cases/?owner_id=${medico.id}`),
+          fetch(`http://127.0.0.1:8000/patients/?owner_id=${medico.id}`),
+          fetch(`http://127.0.0.1:8000/dashboard/stats?owner_id=${medico.id}`),
+        ]);
+
         if (resCases.ok) {
           const data = await resCases.json();
           setCases(data.sort((a: any, b: any) => b.id - a.id));
         }
 
-        // Busca a contagem de Pacientes únicos (Nova rota que criamos no main.py)
-        const resPatients = await fetch(`http://127.0.0.1:8000/patients/?owner_id=${medico.id}`);
         if (resPatients.ok) {
           const dataPatients = await resPatients.json();
           setPatientCount(dataPatients.length);
+        }
+
+        if (resStats.ok) {
+          const dataStats = await resStats.json();
+          setStats(dataStats);
         }
       } catch (error) {
         console.error("Erro ao buscar dados:", error);
@@ -54,8 +91,6 @@ const Dashboard = () => {
   }, [medico.id, navigate]);
 
   const handleDeleteCase = async (caseId: number) => {
-    if (!confirm("Tem certeza que deseja excluir este caso clínico?")) return;
-
     try {
       const response = await fetch(`http://127.0.0.1:8000/cases/${caseId}?owner_id=${medico.id}`, {
         method: "DELETE",
@@ -63,9 +98,15 @@ const Dashboard = () => {
 
       if (response.ok) {
         setCases((prev) => prev.filter((c: any) => c.id !== caseId));
+        if (stats) {
+          const newStats = await fetch(`http://127.0.0.1:8000/dashboard/stats?owner_id=${medico.id}`);
+          if (newStats.ok) setStats(await newStats.json());
+        }
       }
     } catch (error) {
       console.error("Erro na requisição:", error);
+    } finally {
+      setDeleteTargetId(null);
     }
   };
 
@@ -74,9 +115,19 @@ const Dashboard = () => {
     navigate("/login");
   };
 
-  // Cálculos baseados nos dados reais do banco
   const totalCasos = cases.length;
   const analisesConcluidas = cases.filter((c: any) => c.status === "Analisado").length;
+
+  const hasStats = stats && (
+    stats.urgency.length > 0 ||
+    stats.care_type.length > 0 ||
+    stats.pathology.length > 0
+  );
+
+  const formattedDateData = stats?.cases_by_date.map((d) => ({
+    ...d,
+    date: new Date(d.date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+  })) ?? [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
@@ -127,7 +178,6 @@ const Dashboard = () => {
           <p className="text-muted-foreground">Gerencie prontuários e triagens.</p>
         </div>
 
-        {/* CARDS COM MÉTRICAS REAIS */}
         <div className="grid md:grid-cols-3 gap-6 mb-8">
           <Card className="shadow-sm border-l-4 border-l-primary">
             <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex gap-2"><Users className="w-4 h-4 text-primary"/>Total de Pacientes</CardTitle></CardHeader>
@@ -164,7 +214,7 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        <Card className="shadow-sm">
+        <Card className="shadow-sm mb-8">
           <CardHeader><CardTitle>Atendimentos Recentes</CardTitle></CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -188,13 +238,20 @@ const Dashboard = () => {
                         <td className="py-4 font-medium">{caso.patient_name}</td>
                         <td className="py-4 text-sm text-muted-foreground">{new Date(caso.created_at).toLocaleDateString('pt-BR')}</td>
                         <td className="py-4">
-                           <Badge variant={caso.ai_analysis_json?.urgency === "Alta" ? "destructive" : "secondary"}>
+                          <Badge variant={caso.ai_analysis_json?.urgency === "Alta" ? "destructive" : "secondary"}>
                             {caso.ai_analysis_json?.urgency || "Pendente"}
                           </Badge>
                         </td>
                         <td className="py-4 text-right flex justify-end gap-2">
                           <Button variant="ghost" size="sm" onClick={() => navigate(`/case/${caso.id}`)}>Detalhes</Button>
-                          <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteCase(caso.id)}><Trash2 className="w-4 h-4"/></Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive"
+                            onClick={() => setDeleteTargetId(caso.id)}
+                          >
+                            <Trash2 className="w-4 h-4"/>
+                          </Button>
                         </td>
                       </tr>
                     ))
@@ -204,7 +261,96 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
+
+        {hasStats && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-bold">Análise Gráfica</h2>
+            <div className="grid lg:grid-cols-3 gap-6">
+
+              <Card className="shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Distribuição de Urgência</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie
+                        data={stats!.urgency}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={70}
+                        label={({ name, value }) => `${name}: ${value}`}
+                        labelLine={false}
+                      >
+                        {stats!.urgency.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={URGENCY_COLORS[entry.name] ?? "#94a3b8"} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number, name: string) => [value, name]} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Atendimentos por Tipo</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={stats!.care_type} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Casos por Dia — Últimos 7 Dias</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={formattedDateData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Bar dataKey="total" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+            </div>
+          </div>
+        )}
       </main>
+
+      <AlertDialog open={deleteTargetId !== null} onOpenChange={(open) => { if (!open) setDeleteTargetId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O caso clínico será removido permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTargetId !== null && handleDeleteCase(deleteTargetId)}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
