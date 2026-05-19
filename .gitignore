@@ -1,5 +1,86 @@
-node_modules
-.env
+# =================== PYTHON / BACKEND ===================
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# Ambientes virtuais
+venv/
+.venv/
+env/
+.env/
+ENV/
+
+# Distribuição / build Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Pytest / cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Mypy
+.mypy_cache/
+
+# =================== VARIÁVEIS DE AMBIENTE ===================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# =================== BANCO DE DADOS ===================
 *.db
+*.sqlite
+*.sqlite3
+
+# =================== NODE / FRONTEND ===================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build Vite / React
+dist/
+dist-ssr/
+*.local
+
+# Cache Vite
+.vite/
+
+# =================== EDITOR / IDE ===================
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.project
+.classpath
+.settings/
+
+# =================== SO ===================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# =================== LOGS ===================
+*.log
+logs/

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_URL } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,7 +35,7 @@ const Settings = () => {
 
     const fetchUserData = async () => {
       try {
-        const response = await fetch(`http://127.0.0.1:8000/users/${medicoId}`);
+        const response = await fetch(`${API_URL}/users/${medicoId}`);
         if (response.ok) {
           const data = await response.json();
           // Preenche o formulário com os dados que vieram do banco (Snake Case do Python)
@@ -60,7 +61,7 @@ const Settings = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/users/${medicoId}`, {
+      const response = await fetch(`${API_URL}/users/${medicoId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

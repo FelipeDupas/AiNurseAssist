@@ -94,6 +94,7 @@ class CaseResponse(BaseModel):
     ai_analysis_json: Optional[Any] = None
     patient_name: Optional[str] = None
     care_type: Optional[str] = None
+    cpf: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -45,6 +45,119 @@ def calcular_idade(data_nascimento_str):
         return "não identificada"
 
 
+def executar_analise_ia(patient, care_type: str, anamnesis, hpma, extended_anamnesis: dict, symptoms: str, exams):
+    """Constrói o prompt clínico e executa a análise via Gemini. Retorna (ai_result, ai_sucesso)."""
+    idade = calcular_idade(patient.birth_date)
+    is_pediatric = isinstance(idade, int) and idade < 12
+
+    contexto_anamnese = ""
+    if anamnesis:
+        contexto_anamnese += f"\nAnamnese Geral: {anamnesis}"
+    if hpma:
+        contexto_anamnese += f"\nHPMA (História da Presente Moléstia Atual): {hpma}"
+    if extended_anamnesis.get("antecedentes_pessoais"):
+        contexto_anamnese += f"\nAntecedentes Pessoais: {extended_anamnesis['antecedentes_pessoais']}"
+    if extended_anamnesis.get("antecedentes_familiares"):
+        contexto_anamnese += f"\nAntecedentes Familiares: {extended_anamnesis['antecedentes_familiares']}"
+    if extended_anamnesis.get("antecedentes_cirurgicos"):
+        contexto_anamnese += f"\nAntecedentes Cirúrgicos: {extended_anamnesis['antecedentes_cirurgicos']}"
+    if extended_anamnesis.get("historia_gineco_obstetrica"):
+        contexto_anamnese += f"\nHistória Gineco-Obstétrica: {extended_anamnesis['historia_gineco_obstetrica']}"
+    if extended_anamnesis.get("habitos_vida"):
+        contexto_anamnese += f"\nHábitos de Vida: {extended_anamnesis['habitos_vida']}"
+    if extended_anamnesis.get("medicamentos_uso"):
+        contexto_anamnese += f"\nMedicamentos em Uso: {extended_anamnesis['medicamentos_uso']}"
+    if extended_anamnesis.get("alergias"):
+        contexto_anamnese += f"\nAlergias: {extended_anamnesis['alergias']}"
+    if extended_anamnesis.get("revisao_sistemas"):
+        contexto_anamnese += f"\nRevisão por Sistemas: {extended_anamnesis['revisao_sistemas']}"
+    if extended_anamnesis.get("pediatric_vaccines"):
+        contexto_anamnese += f"\nSituação Vacinal: {extended_anamnesis['pediatric_vaccines']}"
+    if extended_anamnesis.get("pediatric_dnpm"):
+        contexto_anamnese += f"\nDesenvolvimento Neuropsicomotor (DNPM): {extended_anamnesis['pediatric_dnpm']}"
+    if extended_anamnesis.get("pediatric_breastfed"):
+        contexto_anamnese += f"\nAleitamento Materno: {extended_anamnesis['pediatric_breastfed']}"
+
+    if care_type == "Urgência":
+        instrucao_tipo = (
+            "ATENÇÃO: Este é um atendimento de URGÊNCIA/EMERGÊNCIA. "
+            "Priorize a identificação de condições que ameaçam a vida. "
+            "A urgência tende a ser Alta. Seja objetivo e direto na justificativa."
+        )
+    elif care_type == "Pediátrico" or is_pediatric:
+        instrucao_tipo = (
+            "ATENÇÃO: Paciente PEDIÁTRICO. "
+            "Adapte todas as dosagens de medicamentos ao peso/idade pediátrica (mg/kg quando aplicável). "
+            "Considere diagnósticos diferenciais prevalentes na faixa etária. "
+            "Verifique esquema vacinal e desenvolvimento neuropsicomotor no raciocínio clínico."
+        )
+    else:
+        instrucao_tipo = (
+            "Realize triagem clínica completa de Clínica Geral. "
+            "Considere diagnósticos diferenciais amplos e condutas baseadas em evidências."
+        )
+
+    prompt = f"""
+    Campos ausentes do contexto indicam que a informação não estava disponível — ignore-os na análise clínica.
+
+    Atue como um médico especialista sênior. {instrucao_tipo}
+
+    TIPO DE ATENDIMENTO: {care_type}
+
+    DADOS DO PACIENTE:
+    - Nome: {patient.full_name}
+    - Idade: {idade} anos
+    - Sexo: {patient.gender}
+    - Histórico Base (Condições Preexistentes): {patient.medical_history or "Não informado"}
+    {contexto_anamnese}
+
+    QUEIXA PRINCIPAL / SINTOMAS ATUAIS: {symptoms}
+    EXAMES INFORMADOS: {exams or "Nenhum"}
+
+    Retorne ESTRITAMENTE um JSON com as seguintes chaves:
+    - referral: string. DEVE ser exatamente um dos valores: "Urgência", "Clínica Geral", "Pediatra", "Cardiologia", "Ortopedia", "Neurologia", "Ginecologia", "Psiquiatria", "Dermatologia", "Oftalmologia", "Otorrinolaringologia", "Urologia", "Gastroenterologia", "Pneumologia", "Endocrinologia", "Oncologia", "Reumatologia", "Infectologia", "Nefrologia", "Hematologia", "Outro"
+    - urgency: string exatamente "Alta", "Média" ou "Baixa"
+    - justification: string com justificativa clínica detalhada
+    - pathology_type: string com o tipo de patologia. DEVE ser exatamente um dos valores: "Infecciosa", "Cardiovascular", "Respiratória", "Neurológica", "Gastrointestinal", "Musculoesquelética", "Dermatológica", "Endócrina/Metabólica", "Psiquiátrica", "Oncológica", "Ginecológica/Obstétrica", "Urológica", "Oftalmológica", "Otorrinolaringológica", "Hematológica", "Imunológica/Autoimune", "Neonatal/Pediátrica", "Traumatológica/Ortopédica", "Renal/Nefrologica", "Outra"
+    - cid10: objeto com "code" (código CID-10 principal, ex: "J18.0") e "description" (descrição em português)
+    - cid10_secondary: lista de objetos com "code" e "description" para diagnósticos secundários relevantes (pode ser lista vazia se não houver)
+    - diagnoses: lista de objetos com "name" (nome do diagnóstico) e "probability" (ex: "75%"), ordenados do mais ao menos provável
+    - exams: lista de strings com exames sugeridos. Se nenhum exame for necessário, retorne lista vazia []
+    - medications: lista de strings com medicações sugeridas (nome genérico + dosagem). Se nenhuma medicação for indicada agora, retorne lista vazia []
+    """
+
+    ai_sucesso = True
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(response_mime_type="application/json"),
+        )
+        ai_result = json.loads(response.text)
+        if "diagnoses" not in ai_result: ai_result["diagnoses"] = []
+        if "exams" not in ai_result: ai_result["exams"] = []
+        if "medications" not in ai_result: ai_result["medications"] = []
+        if "pathology_type" not in ai_result: ai_result["pathology_type"] = "Outra"
+        if "cid10" not in ai_result: ai_result["cid10"] = {"code": "Z99", "description": "Não classificado"}
+        if "cid10_secondary" not in ai_result: ai_result["cid10_secondary"] = []
+    except Exception as e:
+        print(f"Erro Gemini: {e}")
+        ai_sucesso = False
+        ai_result = {
+            "referral": "Clínica Geral",
+            "urgency": "Indefinida",
+            "justification": "Erro no processamento da IA. Avaliação manual necessária.",
+            "pathology_type": "Não classificado",
+            "cid10": {"code": "Z99", "description": "Sem classificação disponível"},
+            "cid10_secondary": [],
+            "diagnoses": [],
+            "exams": [],
+            "medications": [],
+        }
+
+    return ai_result, ai_sucesso
+
+
 @app.post("/login", response_model=schemas.UserResponse)
 def login(user_credentials: schemas.UserLogin, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == user_credentials.email).first()
@@ -157,116 +270,19 @@ def create_case(case_data: schemas.CaseCreate, owner_id: int, db: Session = Depe
     if case_data.pediatric_dnpm:
         extended_anamnesis["pediatric_dnpm"] = case_data.pediatric_dnpm
 
-    idade = calcular_idade(patient.birth_date)
     care_type = case_data.care_type or "Clínica Geral"
-    is_pediatric = isinstance(idade, int) and idade < 12
 
-    contexto_anamnese = ""
-    if case_data.anamnesis:
-        contexto_anamnese += f"\nAnamnese Geral: {case_data.anamnesis}"
-    if case_data.hpma:
-        contexto_anamnese += f"\nHPMA (História da Presente Moléstia Atual): {case_data.hpma}"
-    if extended_anamnesis.get("antecedentes_pessoais"):
-        contexto_anamnese += f"\nAntecedentes Pessoais: {extended_anamnesis['antecedentes_pessoais']}"
-    if extended_anamnesis.get("antecedentes_familiares"):
-        contexto_anamnese += f"\nAntecedentes Familiares: {extended_anamnesis['antecedentes_familiares']}"
-    if extended_anamnesis.get("antecedentes_cirurgicos"):
-        contexto_anamnese += f"\nAntecedentes Cirúrgicos: {extended_anamnesis['antecedentes_cirurgicos']}"
-    if extended_anamnesis.get("historia_gineco_obstetrica"):
-        contexto_anamnese += f"\nHistória Gineco-Obstétrica: {extended_anamnesis['historia_gineco_obstetrica']}"
-    if extended_anamnesis.get("habitos_vida"):
-        contexto_anamnese += f"\nHábitos de Vida: {extended_anamnesis['habitos_vida']}"
-    if extended_anamnesis.get("medicamentos_uso"):
-        contexto_anamnese += f"\nMedicamentos em Uso: {extended_anamnesis['medicamentos_uso']}"
-    if extended_anamnesis.get("alergias"):
-        contexto_anamnese += f"\nAlergias: {extended_anamnesis['alergias']}"
-    if extended_anamnesis.get("revisao_sistemas"):
-        contexto_anamnese += f"\nRevisão por Sistemas: {extended_anamnesis['revisao_sistemas']}"
-    if extended_anamnesis.get("pediatric_vaccines"):
-        contexto_anamnese += f"\nSituação Vacinal: {extended_anamnesis['pediatric_vaccines']}"
-    if extended_anamnesis.get("pediatric_dnpm"):
-        contexto_anamnese += f"\nDesenvolvimento Neuropsicomotor (DNPM): {extended_anamnesis['pediatric_dnpm']}"
-    if extended_anamnesis.get("pediatric_breastfed"):
-        contexto_anamnese += f"\nAleitamento Materno: {extended_anamnesis['pediatric_breastfed']}"
+    ai_result, ai_sucesso = executar_analise_ia(
+        patient=patient,
+        care_type=care_type,
+        anamnesis=case_data.anamnesis,
+        hpma=case_data.hpma,
+        extended_anamnesis=extended_anamnesis,
+        symptoms=case_data.symptoms,
+        exams=case_data.exams,
+    )
 
-    if care_type == "Urgência":
-        instrucao_tipo = (
-            "ATENÇÃO: Este é um atendimento de URGÊNCIA/EMERGÊNCIA. "
-            "Priorize a identificação de condições que ameaçam a vida. "
-            "A urgência tende a ser Alta. Seja objetivo e direto na justificativa."
-        )
-    elif care_type == "Pediátrico" or is_pediatric:
-        instrucao_tipo = (
-            "ATENÇÃO: Paciente PEDIÁTRICO. "
-            "Adapte todas as dosagens de medicamentos ao peso/idade pediátrica (mg/kg quando aplicável). "
-            "Considere diagnósticos diferenciais prevalentes na faixa etária. "
-            "Verifique esquema vacinal e desenvolvimento neuropsicomotor no raciocínio clínico."
-        )
-    else:
-        instrucao_tipo = (
-            "Realize triagem clínica completa de Clínica Geral. "
-            "Considere diagnósticos diferenciais amplos e condutas baseadas em evidências."
-        )
-
-    prompt = f"""
-    Campos ausentes do contexto indicam que a informação não estava disponível — ignore-os na análise clínica.
-
-    Atue como um médico especialista sênior. {instrucao_tipo}
-
-    TIPO DE ATENDIMENTO: {care_type}
-
-    DADOS DO PACIENTE:
-    - Nome: {patient.full_name}
-    - Idade: {idade} anos
-    - Sexo: {patient.gender}
-    - Histórico Base (Condições Preexistentes): {patient.medical_history or "Não informado"}
-    {contexto_anamnese}
-
-    QUEIXA PRINCIPAL / SINTOMAS ATUAIS: {case_data.symptoms}
-    EXAMES INFORMADOS: {case_data.exams or "Nenhum"}
-
-    Retorne ESTRITAMENTE um JSON com as seguintes chaves:
-    - referral: string. DEVE ser exatamente um dos valores: "Urgência", "Clínica Geral", "Pediatra", "Cardiologia", "Ortopedia", "Neurologia", "Ginecologia", "Psiquiatria", "Dermatologia", "Oftalmologia", "Otorrinolaringologia", "Urologia", "Gastroenterologia", "Pneumologia", "Endocrinologia", "Oncologia", "Reumatologia", "Infectologia", "Nefrologia", "Hematologia", "Outro"
-    - urgency: string exatamente "Alta", "Média" ou "Baixa"
-    - justification: string com justificativa clínica detalhada
-    - pathology_type: string com o tipo de patologia. DEVE ser exatamente um dos valores: "Infecciosa", "Cardiovascular", "Respiratória", "Neurológica", "Gastrointestinal", "Musculoesquelética", "Dermatológica", "Endócrina/Metabólica", "Psiquiátrica", "Oncológica", "Ginecológica/Obstétrica", "Urológica", "Oftalmológica", "Otorrinolaringológica", "Hematológica", "Imunológica/Autoimune", "Neonatal/Pediátrica", "Traumatológica/Ortopédica", "Renal/Nefrologica", "Outra"
-    - cid10: objeto com "code" (código CID-10 principal, ex: "J18.0") e "description" (descrição em português)
-    - cid10_secondary: lista de objetos com "code" e "description" para diagnósticos secundários relevantes (pode ser lista vazia se não houver)
-    - diagnoses: lista de objetos com "name" (nome do diagnóstico) e "probability" (ex: "75%"), ordenados do mais ao menos provável
-    - exams: lista de strings com exames sugeridos. Se nenhum exame for necessário, retorne lista vazia []
-    - medications: lista de strings com medicações sugeridas (nome genérico + dosagem). Se nenhuma medicação for indicada agora, retorne lista vazia []
-    """
-
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.0-flash',
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-            )
-        )
-
-        ai_result = json.loads(response.text)
-
-        if "diagnoses" not in ai_result: ai_result["diagnoses"] = []
-        if "exams" not in ai_result: ai_result["exams"] = []
-        if "medications" not in ai_result: ai_result["medications"] = []
-        if "pathology_type" not in ai_result: ai_result["pathology_type"] = "Outra"
-        if "cid10" not in ai_result: ai_result["cid10"] = {"code": "Z99", "description": "Não classificado"}
-        if "cid10_secondary" not in ai_result: ai_result["cid10_secondary"] = []
-
-    except Exception as e:
-        print(f"Erro Gemini: {e}")
-        ai_result = {
-            "referral": "Clínica Geral",
-            "urgency": "Indefinida",
-            "justification": "Erro no processamento da IA. Avaliação manual necessária.",
-            "pathology_type": "Não classificado",
-            "cid10": {"code": "Z99", "description": "Sem classificação disponível"},
-            "diagnoses": [],
-            "exams": [],
-            "medications": []
-        }
+    status_caso = "Analisado" if ai_sucesso else "Erro na Análise"
 
     new_case = models.Case(
         patient_id=patient.id,
@@ -277,7 +293,7 @@ def create_case(case_data: schemas.CaseCreate, owner_id: int, db: Session = Depe
         symptoms=case_data.symptoms,
         exams_input=case_data.exams,
         owner_id=owner_id,
-        status="Analisado",
+        status=status_caso,
         ai_analysis_json=ai_result
     )
 
@@ -319,6 +335,8 @@ def update_case(case_id: int, case_update: schemas.CaseUpdate, db: Session = Dep
         case.hpma = direct_updates["hpma"]
     if "doctor_conclusion" in direct_updates:
         case.doctor_conclusion = direct_updates["doctor_conclusion"]
+        if direct_updates["doctor_conclusion"]:
+            case.status = "Revisado pelo Médico"
 
     db.commit()
     db.refresh(case)
@@ -343,14 +361,15 @@ def update_case(case_id: int, case_update: schemas.CaseUpdate, db: Session = Dep
 
 @app.get("/cases/", response_model=list[schemas.CaseResponse])
 def read_cases(owner_id: int, db: Session = Depends(get_db)):
-    results = db.query(models.Case, models.Patient.full_name).\
+    results = db.query(models.Case, models.Patient.full_name, models.Patient.cpf).\
               join(models.Patient, models.Case.patient_id == models.Patient.id).\
               filter(models.Case.owner_id == owner_id).\
               order_by(models.Case.id.desc()).all()
 
     cases_list = []
-    for case, name in results:
+    for case, name, cpf in results:
         case.patient_name = name
+        case.cpf = cpf
         cases_list.append(case)
     return cases_list
 
@@ -377,6 +396,42 @@ def read_case_detail(case_id: int, db: Session = Depends(get_db)):
         case.medical_history = "N/A"
 
     return case
+
+@app.post("/cases/{case_id}/reanalisar", response_model=schemas.CaseDetailResponse)
+def reanalisar_caso(case_id: int, db: Session = Depends(get_db)):
+    case = db.query(models.Case).filter(models.Case.id == case_id).first()
+    if not case:
+        raise HTTPException(status_code=404, detail="Caso não encontrado")
+
+    patient = db.query(models.Patient).filter(models.Patient.id == case.patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Paciente não encontrado")
+
+    extended_anamnesis = dict(case.extended_anamnesis_json) if case.extended_anamnesis_json else {}
+
+    ai_result, ai_sucesso = executar_analise_ia(
+        patient=patient,
+        care_type=case.care_type or "Clínica Geral",
+        anamnesis=case.anamnesis,
+        hpma=case.hpma,
+        extended_anamnesis=extended_anamnesis,
+        symptoms=case.symptoms,
+        exams=case.exams_input,
+    )
+
+    case.ai_analysis_json = ai_result
+    case.status = "Analisado" if ai_sucesso else "Erro na Análise"
+    db.commit()
+    db.refresh(case)
+
+    case.patient_name = patient.full_name
+    case.birth_date = patient.birth_date
+    case.gender = patient.gender
+    case.cpf = patient.cpf
+    case.mother_name = patient.mother_name
+    case.medical_history = patient.medical_history
+    return case
+
 
 @app.delete("/cases/{case_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_case(case_id: int, owner_id: int, db: Session = Depends(get_db)):

@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Download, AlertCircle, CheckCircle, Activity, Stethoscope, ClipboardList, Baby, AlertTriangle, PenLine } from "lucide-react";
+import { ArrowLeft, Download, AlertCircle, CheckCircle, Activity, Stethoscope, ClipboardList, Baby, AlertTriangle, PenLine, RefreshCw } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { API_URL } from "@/lib/api";
 
 const referralColors: Record<string, string> = {
   "Urgência": "bg-red-100 border-l-red-600 text-red-900",
@@ -53,6 +54,7 @@ interface ExtendedAnamnesis {
 
 interface CaseData {
   id: number;
+  status: string;
   patient_name: string;
   birth_date: string;
   gender: string;
@@ -89,11 +91,12 @@ const CaseView = () => {
   const [loading, setLoading] = useState(true);
   const [conclusionText, setConclusionText] = useState("");
   const [savingConclusion, setSavingConclusion] = useState(false);
+  const [reanalyzing, setReanalyzing] = useState(false);
 
   useEffect(() => {
     const fetchCaseDetail = async () => {
       try {
-        const response = await fetch(`http://127.0.0.1:8000/cases/${id}`);
+        const response = await fetch(`${API_URL}/cases/${id}`);
         if (response.ok) {
           const data = await response.json();
           setCaseData(data);
@@ -123,10 +126,29 @@ const CaseView = () => {
     html2pdf().set(opt).from(element).save();
   };
 
+  const handleReanalisar = async () => {
+    setReanalyzing(true);
+    try {
+      const response = await fetch(`${API_URL}/cases/${id}/reanalisar`, { method: "POST" });
+      if (response.ok) {
+        const data = await response.json();
+        setCaseData(data);
+        setConclusionText(data.doctor_conclusion || "");
+        toast.success("Análise concluída com sucesso!");
+      } else {
+        toast.error("Erro ao reanalisar caso.");
+      }
+    } catch {
+      toast.error("Erro de conexão ao reanalisar.");
+    } finally {
+      setReanalyzing(false);
+    }
+  };
+
   const handleSaveConclusion = async () => {
     setSavingConclusion(true);
     try {
-      const response = await fetch(`http://127.0.0.1:8000/cases/${id}`, {
+      const response = await fetch(`${API_URL}/cases/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ doctor_conclusion: conclusionText }),
@@ -160,15 +182,38 @@ const CaseView = () => {
   const ai = caseData.ai_analysis_json;
   const ext = caseData.extended_anamnesis_json;
 
+  // Parse em horário local para evitar deslocamento de fuso UTC
   const calcularIdade = (dataNasc: string) => {
     if (!dataNasc) return "N/A";
-    const nasc = new Date(dataNasc);
+    const [ano, mes, dia] = dataNasc.split("-").map(Number);
+    const nasc = new Date(ano, mes - 1, dia);
     const hoje = new Date();
     let idade = hoje.getFullYear() - nasc.getFullYear();
     const m = hoje.getMonth() - nasc.getMonth();
     if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
     return idade;
   };
+
+  const formatarData = (isoDate: string) => {
+    if (!isoDate) return "—";
+    const [ano, mes, dia] = isoDate.split("-");
+    return `${dia}/${mes}/${ano}`;
+  };
+
+  const formatarDataHora = (iso: string) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleDateString("pt-BR") + " " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const statusConfig: Record<string, { label: string; classe: string }> = {
+    "Pendente":             { label: "Pendente",             classe: "bg-gray-100 text-gray-700 border-gray-300" },
+    "Em Análise":           { label: "Em Análise",           classe: "bg-blue-100 text-blue-700 border-blue-300" },
+    "Analisado":            { label: "Analisado",            classe: "bg-green-100 text-green-700 border-green-300" },
+    "Erro na Análise":      { label: "Erro na Análise",      classe: "bg-red-100 text-red-700 border-red-300" },
+    "Revisado pelo Médico": { label: "Revisado pelo Médico", classe: "bg-purple-100 text-purple-700 border-purple-300" },
+  };
+  const statusAtual = statusConfig[caseData.status] ?? statusConfig["Pendente"];
 
   const referralClass = referralColors[ai?.referral] ?? "bg-blue-50 border-l-blue-500 text-blue-900";
   const urgencyClass = urgencyColors[ai?.urgency] ?? "bg-gray-100 text-gray-700 border-gray-300";
@@ -218,14 +263,25 @@ const CaseView = () => {
           <div className="flex items-center gap-3">
             <Button
               variant="outline"
+              className="gap-2 border-orange-500 text-orange-600 hover:bg-orange-50"
+              onClick={handleReanalisar}
+              disabled={reanalyzing}
+              aria-label="Reanalisar caso com IA"
+            >
+              <RefreshCw className={`w-4 h-4 ${reanalyzing ? "animate-spin" : ""}`} aria-hidden="true" />
+              {reanalyzing ? "Analisando..." : "Reanalisar com IA"}
+            </Button>
+            <Button
+              variant="outline"
               className="gap-2 border-primary text-primary hover:bg-primary/5"
               onClick={() => navigate(`/edit-case/${id}`)}
+              aria-label="Editar dados do caso"
             >
-              <Pencil className="w-4 h-4" />
+              <Pencil className="w-4 h-4" aria-hidden="true" />
               Editar Caso
             </Button>
-            <Button className="gap-2" onClick={handleExportPDF}>
-              <Download className="w-4 h-4" />
+            <Button className="gap-2" onClick={handleExportPDF} aria-label="Exportar relatório em PDF">
+              <Download className="w-4 h-4" aria-hidden="true" />
               Exportar PDF
             </Button>
           </div>
@@ -238,13 +294,18 @@ const CaseView = () => {
             <div>
               <h1 className="text-3xl font-bold mb-2">Relatório de Teletriagem</h1>
               <p className="text-muted-foreground">
-                Caso #{caseData.id} • Gerado em {caseData.created_at}
+                Caso #{caseData.id} • Gerado em {formatarDataHora(caseData.created_at)}
               </p>
             </div>
-            <Badge className={`flex items-center gap-1 border text-sm px-3 py-1 ${careConfig.color}`}>
-              {careConfig.icon}
-              {careConfig.label}
-            </Badge>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${statusAtual.classe}`}>
+                {statusAtual.label}
+              </span>
+              <Badge className={`flex items-center gap-1 border text-sm px-3 py-1 ${careConfig.color}`}>
+                {careConfig.icon}
+                {careConfig.label}
+              </Badge>
+            </div>
           </div>
 
           {hasValue(caseData.doctor_conclusion) && (
@@ -268,6 +329,7 @@ const CaseView = () => {
                   <h3 className="font-semibold text-sm text-muted-foreground mb-1">Nome</h3>
                   <p className="text-lg font-medium">{caseData.patient_name}</p>
                   <div className="flex flex-wrap gap-4 mt-2 text-sm text-muted-foreground">
+                    <span>Nascimento: {formatarData(caseData.birth_date)}</span>
                     <span>Idade: {calcularIdade(caseData.birth_date)} anos</span>
                     <span>Sexo: {caseData.gender}</span>
                   </div>
@@ -538,9 +600,32 @@ const CaseView = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="p-4 bg-red-100 text-red-700 rounded-lg">
-                Análise pendente ou erro na IA.
-              </div>
+              <Card className="shadow-[var(--shadow-card)] border border-red-200 bg-red-50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-red-700">
+                    <AlertCircle className="w-5 h-5" />
+                    Erro na Análise
+                  </CardTitle>
+                  <CardDescription className="text-red-600">
+                    Não foi possível processar a análise inteligente para este caso.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-red-700 mb-4">
+                    Isso pode ter ocorrido por falha na conexão com a IA ou dados insuficientes.
+                    Clique em "Reanalisar com IA" para tentar novamente.
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="gap-2 border-red-500 text-red-600 hover:bg-red-100"
+                    onClick={handleReanalisar}
+                    disabled={reanalyzing}
+                  >
+                    <RefreshCw className={`w-4 h-4 ${reanalyzing ? "animate-spin" : ""}`} />
+                    {reanalyzing ? "Analisando..." : "Reanalisar com IA"}
+                  </Button>
+                </CardContent>
+              </Card>
             )}
           </div>
         </div>

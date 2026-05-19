@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_URL } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ const PatientsList = () => {
   const medico = JSON.parse(localStorage.getItem("medico") || "{}");
 
   useEffect(() => {
-    fetch(`http://127.0.0.1:8000/patients/?owner_id=${medico.id}`)
+    fetch(`${API_URL}/patients/?owner_id=${medico.id}`)
       .then(res => res.json())
       .then(data => setPatients(data))
       .catch(err => console.error("Erro ao buscar pacientes:", err));

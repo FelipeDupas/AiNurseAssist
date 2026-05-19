@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { API_URL } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +21,7 @@ const Login = () => {
 
     try {
       // AQUI ESTÁ A MÁGICA: Ele vai bater no seu Python
-      const response = await fetch("http://127.0.0.1:8000/login", {
+      const response = await fetch(`${API_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -32,9 +33,11 @@ const Login = () => {
         const data = await response.json();
         
         // Só salva e entra SE o Python disse OK
-        localStorage.setItem("medico", JSON.stringify({ 
+        const nomeCompleto = data.full_name || "";
+        const nomeSemPrefixo = nomeCompleto.replace(/^Dr[a]?\.\s+/i, "").trim();
+        localStorage.setItem("medico", JSON.stringify({
           id: data.id,
-          nome: data.full_name, 
+          nome: nomeSemPrefixo,
           crm: data.crm,
           email: data.email,
           specialty: data.specialty

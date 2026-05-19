@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { API_URL } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -81,7 +82,7 @@ const EditCase = () => {
   useEffect(() => {
     const fetchCase = async () => {
       try {
-        const response = await fetch(`http://127.0.0.1:8000/cases/${id}`);
+        const response = await fetch(`${API_URL}/cases/${id}`);
         if (!response.ok) {
           toast.error("Caso não encontrado.");
           navigate("/dashboard");
@@ -138,7 +139,7 @@ const EditCase = () => {
     }
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/cases/${id}?owner_id=${medico.id}`, {
+      const response = await fetch(`${API_URL}/cases/${id}?owner_id=${medico.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
